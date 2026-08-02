@@ -1,0 +1,67 @@
+id = "seedance-pro"
+label = "Seedance Pro"
+category = "VID"
+platform = "replicate"
+endpoint = "bytedance/seedance-1-pro"
+description = "ByteDance's Seedance Pro: text-to-video and image-to-video at 1080p. Supports first/last frame interpolation, camera control, and multi-shot generation with narrative coherence."
+
+[pricing]
+cost_per_second = 0.15
+currency = "USD"
+
+[general]
+image_url_param = "image"
+duration_type = "seconds"
+duration_param_name = "duration"
+
+[params.resolution]
+label = "Resolution"
+type = "select"
+default = "1080p"
+options = [
+  { value = "480p",  label = "480p · Lower cost" },
+  { value = "1080p", label = "1080p · Full HD" },
+]
+
+[params.aspect_ratio]
+label = "Aspect Ratio"
+type = "select"
+default = "16:9"
+optional = true
+options = [
+  { value = "16:9", label = "16:9 · Landscape" },
+  { value = "9:16", label = "9:16 · Portrait · Vertical" },
+]
+note = "Ignored when an image is used"
+
+[params.duration]
+label = "Duration"
+type = "select"
+default = "5"
+options = [
+  { value = "5",  label = "5s · Short" },
+  { value = "10", label = "10s · Long" },
+]
+
+[params.fps]
+label = "FPS"
+type = "integer"
+default = 24
+min = 16
+max = 30
+hidden = true
+
+[params.camera_fixed]
+label = "Fixed Camera"
+type = "boolean"
+default = false
+hidden = true
+
+[params.seed]
+label = "Random Seed"
+type = "integer"
+default = -1
+min = -1
+max = 2147483647
+optional = true
+hidden = true

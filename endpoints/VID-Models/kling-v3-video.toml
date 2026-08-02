@@ -1,0 +1,60 @@
+id = "kling-v3-video"
+label = "Kling Video 3.0"
+category = "VID"
+platform = "replicate"
+endpoint = "kwaivgi/kling-v3-video"
+description = "Kling Video 3.0: generate cinematic videos up to 15 seconds with multi-shot control, native audio, and improved consistency. Supports standard/pro/4K modes and multi-shot JSON prompting (up to 6 shots)."
+
+[pricing]
+cost_per_second = 0.35
+currency = "USD"
+note = "Pro mode costs more. 4K mode costs additional."
+
+[general]
+image_url_param = "start_image"
+duration_type = "seconds"
+duration_param_name = "duration"
+
+[params.mode]
+label = "Quality Mode"
+type = "select"
+default = "pro"
+options = [
+  { value = "standard", label = "Standard · 720p" },
+  { value = "pro",      label = "Pro · 1080p" },
+  { value = "4k",       label = "4K · Ultra HD" },
+]
+
+[params.aspect_ratio]
+label = "Aspect Ratio"
+type = "select"
+default = "16:9"
+optional = true
+options = [
+  { value = "16:9", label = "16:9 · Landscape" },
+  { value = "9:16", label = "9:16 · Portrait · Vertical" },
+  { value = "1:1",  label = "1:1 · Square" },
+]
+note = "Ignored when start_image is provided"
+
+[params.duration]
+label = "Duration"
+type = "select"
+default = "5"
+options = [
+  { value = "5",  label = "5s · Short" },
+  { value = "10", label = "10s · Medium" },
+  { value = "15", label = "15s · Long (max)" },
+]
+
+[params.generate_audio]
+label = "Generate Native Audio"
+type = "boolean"
+default = true
+description = "Generate synchronized audio with the video"
+
+[params.negative_prompt]
+label = "Negative Prompt"
+type = "text"
+optional = true
+default = ""

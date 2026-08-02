@@ -1,0 +1,68 @@
+id = "seedream-5-lite"
+label = "Seedream 5.0 Lite"
+category = "IMG"
+platform = "replicate"
+endpoint = "bytedance/seedream-5-lite"
+description = "ByteDance's latest Seedream 5.0 Lite: image generation with built-in reasoning, example-based editing, and deep domain knowledge. Supports up to 14 reference images and 2K/3K resolution."
+
+[pricing]
+base_cost = 0.05
+currency = "USD"
+
+[params.size]
+label = "Resolution"
+type = "select"
+default = "2K"
+options = [
+  { value = "2K", label = "2K (2048px) · Standard" },
+  { value = "3K", label = "3K (3072px) · High Quality" },
+]
+
+[params.aspect_ratio]
+label = "Aspect Ratio"
+type = "select"
+default = "16:9"
+optional = true
+options = [
+  { value = "1:1",   label = "1:1 · Square" },
+  { value = "3:4",   label = "3:4 · Portrait" },
+  { value = "4:3",   label = "4:3 · Classic" },
+  { value = "9:16",  label = "9:16 · Vertical" },
+  { value = "16:9",  label = "16:9 · Landscape · Standard" },
+  { value = "21:9",  label = "21:9 · Ultrawide · Cinematic" },
+  { value = "match_input_image", label = "Match Input Image" },
+]
+
+[params.max_images]
+label = "Max Images per run"
+type = "integer"
+default = 1
+min = 1
+max = 15
+optional = true
+description = "Only used when sequential_image_generation='auto'"
+
+[params.sequential_image_generation]
+label = "Sequential Generation"
+type = "select"
+default = "disabled"
+options = [
+  { value = "disabled", label = "Disabled · Single image" },
+  { value = "auto",     label = "Auto · Model decides group generation" },
+]
+
+[params.output_format]
+label = "Output Format"
+type = "select"
+default = "png"
+options = [
+  { value = "png", label = "PNG · Lossless" },
+  { value = "jpg", label = "JPEG" },
+]
+
+[params.return_byteplus_urls]
+label = "Return BytePlus URLs (24h expiry)"
+type = "boolean"
+default = false
+hidden = true
+description = "Return raw BytePlus-hosted URLs instead of downloading. These bypass face detection when passed as reference images to Seedance 2.0. URLs expire after 24 hours."

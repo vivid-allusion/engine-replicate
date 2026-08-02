@@ -1,0 +1,70 @@
+id = "nano-banana-2"
+label = "Nano Banana 2"
+category = "IMG"
+platform = "replicate"
+endpoint = "google/nano-banana-2"
+description = "Google's latest fast image generation model with conversational editing, multi-image fusion, and character consistency. Built on Gemini 3.1 Flash Image. Supports up to 14 reference images."
+
+[pricing]
+base_cost = 0.014
+currency = "USD"
+note = "High-efficiency model — optimized for speed and high-volume use"
+
+[params.aspect_ratio]
+label = "Aspect Ratio"
+type = "select"
+default = "16:9"
+optional = true
+options = [
+  { value = "1:1",   label = "1:1 · Square" },
+  { value = "2:3",   label = "2:3 · Portrait" },
+  { value = "3:2",   label = "3:2 · Landscape" },
+  { value = "3:4",   label = "3:4 · Portrait" },
+  { value = "4:3",   label = "4:3 · Classic" },
+  { value = "4:5",   label = "4:5 · Portrait" },
+  { value = "5:4",   label = "5:4 · Landscape" },
+  { value = "9:16",  label = "9:16 · Vertical" },
+  { value = "16:9",  label = "16:9 · Landscape · Standard" },
+  { value = "21:9",  label = "21:9 · Ultrawide · Cinematic" },
+  { value = "1:4",   label = "1:4 · Tall Vertical" },
+  { value = "4:1",   label = "4:1 · Wide Panorama" },
+  { value = "1:8",   label = "1:8 · Extreme Vertical" },
+  { value = "8:1",   label = "8:1 · Extreme Panorama" },
+  { value = "match_input_image", label = "Match Input Image" },
+]
+
+[params.resolution]
+label = "Resolution"
+type = "select"
+default = "1K"
+optional = true
+options = [
+  { value = "512px", label = "512px · Fastest" },
+  { value = "1K",    label = "1K (1024px short side) · Standard" },
+  { value = "2K",    label = "2K (2048px short side) · High Quality" },
+  { value = "4K",    label = "4K (4096px short side) · Maximum" },
+]
+note = "Higher resolutions take longer to generate"
+
+[params.output_format]
+label = "Output Format"
+type = "select"
+default = "jpg"
+options = [
+  { value = "jpg", label = "JPEG · Default" },
+  { value = "png", label = "PNG · Lossless" },
+]
+
+[params.google_search]
+label = "Google Web Search Grounding"
+type = "boolean"
+default = false
+hidden = true
+description = "Use Google Web Search grounding to generate images based on real-time information (e.g. weather, sports scores, recent events)"
+
+[params.image_search]
+label = "Google Image Search Grounding"
+type = "boolean"
+default = false
+hidden = true
+description = "Use Google Image Search grounding to find web images as visual context for generation. When enabled, web search is also used automatically."

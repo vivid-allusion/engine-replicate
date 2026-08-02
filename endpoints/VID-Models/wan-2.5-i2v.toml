@@ -1,0 +1,63 @@
+id = "wan-2.5-i2v"
+label = "Wan 2.5 I2V"
+category = "VID"
+platform = "replicate"
+endpoint = "wan-video/wan-2.5-i2v"
+description = "Alibaba Wan 2.5 Image-to-Video: generates videos from images with background audio, one-pass A/V sync, and lip-synced dialogue. Supports 480p/720p/1080p, up to 10 seconds, and custom voice input."
+
+[pricing]
+cost_per_second = 0.15
+currency = "USD"
+
+[general]
+image_url_param = "image"
+duration_type = "seconds"
+duration_param_name = "duration"
+
+[params.resolution]
+label = "Resolution"
+type = "select"
+default = "720p"
+options = [
+  { value = "480p",  label = "480p · Lower cost" },
+  { value = "720p",  label = "720p · Standard" },
+  { value = "1080p", label = "1080p · Full HD" },
+]
+
+[params.duration]
+label = "Duration"
+type = "select"
+default = "5"
+options = [
+  { value = "5",  label = "5s · Short" },
+  { value = "10", label = "10s · Long" },
+]
+
+[params.negative_prompt]
+label = "Negative Prompt"
+type = "text"
+optional = true
+default = ""
+
+[params.enable_prompt_expansion]
+label = "Enable Prompt Expansion"
+type = "boolean"
+default = true
+hidden = true
+description = "Enable the prompt optimizer for improved results"
+
+[params.seed]
+label = "Random Seed"
+type = "integer"
+default = -1
+min = -1
+max = 2147483647
+optional = true
+hidden = true
+
+[params.generate_audio]
+label = "Generate Audio (via prompt)"
+type = "boolean"
+default = false
+hidden = true
+description = "Wan 2.5 can generate synced audio from the prompt. Use descriptive audio cues in your prompt."

@@ -1,0 +1,68 @@
+id = "veo-3.1"
+label = "Veo 3.1"
+category = "VID"
+platform = "replicate"
+endpoint = "google/veo-3.1"
+description = "Google DeepMind's latest Veo 3.1: higher-fidelity video with context-aware audio, reference images for subject consistency, and last frame interpolation. Supports up to 3 reference images (R2V mode at 16:9, 8s)."
+
+[pricing]
+cost_per_second = 0.70
+currency = "USD"
+note = "Google's flagship model — premium pricing"
+
+[general]
+image_url_param = "image"
+duration_type = "seconds"
+duration_param_name = "duration"
+
+[params.aspect_ratio]
+label = "Aspect Ratio"
+type = "select"
+default = "16:9"
+optional = true
+options = [
+  { value = "16:9", label = "16:9 · Landscape" },
+  { value = "9:16", label = "9:16 · Portrait · Vertical" },
+]
+note = "Reference images only work with 16:9 aspect ratio"
+
+[params.duration]
+label = "Duration"
+type = "select"
+default = "8"
+options = [
+  { value = "4",  label = "4s · Very Short" },
+  { value = "6",  label = "6s · Short" },
+  { value = "8",  label = "8s · Standard" },
+]
+
+[params.resolution]
+label = "Resolution"
+type = "select"
+default = "1080p"
+optional = true
+options = [
+  { value = "720p",  label = "720p" },
+  { value = "1080p", label = "1080p · Full HD" },
+]
+
+[params.generate_audio]
+label = "Generate Native Audio"
+type = "boolean"
+default = true
+description = "Generate synchronized audio including dialogue, ambient noise, and sound effects"
+
+[params.negative_prompt]
+label = "Negative Prompt"
+type = "text"
+optional = true
+default = ""
+
+[params.seed]
+label = "Random Seed"
+type = "integer"
+default = -1
+min = -1
+max = 2147483647
+optional = true
+hidden = true

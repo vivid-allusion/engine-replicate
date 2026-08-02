@@ -1,0 +1,95 @@
+id = "flux-2-pro"
+label = "Flux 2 Pro"
+category = "IMG"
+platform = "replicate"
+endpoint = "black-forest-labs/flux-2-pro"
+description = "Black Forest Labs' Flux 2 Pro: high-quality image generation and editing with support for up to 8 reference images. Excellent text rendering, photorealistic details, and character consistency. Uses Mistral-3 24B vision-language model + rectified flow transformer."
+
+[pricing]
+base_cost = 0.06
+currency = "USD"
+
+[params.aspect_ratio]
+label = "Aspect Ratio"
+type = "select"
+default = "1:1"
+options = [
+  { value = "1:1",   label = "1:1 · Square" },
+  { value = "2:3",   label = "2:3 · Portrait" },
+  { value = "3:2",   label = "3:2 · Landscape" },
+  { value = "3:4",   label = "3:4 · Portrait" },
+  { value = "4:3",   label = "4:3 · Classic" },
+  { value = "9:16",  label = "9:16 · Vertical" },
+  { value = "16:9",  label = "16:9 · Landscape · Standard" },
+  { value = "21:9",  label = "21:9 · Ultrawide · Cinematic" },
+  { value = "match_input_image", label = "Match Input Image" },
+  { value = "custom", label = "Custom · Set width/height" },
+]
+note = "When 'custom', resolution is ignored and width/height are used"
+
+[params.resolution]
+label = "Resolution (Megapixels)"
+type = "select"
+default = "1 MP"
+optional = true
+options = [
+  { value = "0.5 MP", label = "0.5 MP" },
+  { value = "1 MP",   label = "1 MP · Standard" },
+  { value = "2 MP",   label = "2 MP · High Quality" },
+  { value = "4 MP",   label = "4 MP · Maximum (1:1 only)" },
+]
+note = "Max image size is 2048x2048. Higher resolutions may not respect the resolution if aspect ratio is not 1:1."
+
+[params.width]
+label = "Custom Width (multiple of 16)"
+type = "integer"
+default = 1024
+min = 256
+max = 2048
+optional = true
+hidden = true
+
+[params.height]
+label = "Custom Height (multiple of 16)"
+type = "integer"
+default = 1024
+min = 256
+max = 2048
+optional = true
+hidden = true
+
+[params.output_format]
+label = "Output Format"
+type = "select"
+default = "webp"
+options = [
+  { value = "webp", label = "WebP · Default" },
+  { value = "jpg",  label = "JPEG" },
+  { value = "png",  label = "PNG · Lossless" },
+]
+
+[params.output_quality]
+label = "Output Quality (0-100)"
+type = "integer"
+default = 80
+min = 0
+max = 100
+hidden = true
+description = "Not relevant for .png outputs"
+
+[params.safety_tolerance]
+label = "Safety Tolerance (1=strict, 5=permissive)"
+type = "integer"
+default = 2
+min = 1
+max = 5
+hidden = true
+
+[params.seed]
+label = "Random Seed"
+type = "integer"
+default = 0
+min = 0
+max = 2147483647
+optional = true
+hidden = true

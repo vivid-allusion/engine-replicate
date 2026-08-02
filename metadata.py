@@ -1,0 +1,5 @@
+PROVIDER_NAME = "Replicate"
+PROVIDER_HOMEPAGE = "https://replicate.com"
+PLATFORM = "replicate"
+API_KEY_ENV_VAR = "REPLICATE_API_TOKEN"
+API_KEY_PATTERN = r"^r8_"

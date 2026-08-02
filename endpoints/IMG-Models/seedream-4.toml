@@ -1,0 +1,60 @@
+id = "seedream-4"
+label = "Seedream 4"
+category = "IMG"
+platform = "replicate"
+endpoint = "bytedance/seedream-4"
+description = "ByteDance's image generation model supporting cinematic aesthetics and multi-reference generation. Supports custom resolutions (2K/4K)."
+
+[pricing]
+base_cost = 0.05
+currency = "USD"
+
+[params.size]
+label = "Resolution"
+type = "select"
+default = "2K"
+options = [
+  { value = "2K",    label = "2K (2048px) · Standard" },
+  { value = "4K",    label = "4K (4096px) · High Quality" },
+  { value = "custom", label = "Custom · Set width/height manually" },
+]
+
+[params.aspect_ratio]
+label = "Aspect Ratio"
+type = "select"
+default = "16:9"
+optional = true
+options = [
+  { value = "1:1",   label = "1:1 · Square" },
+  { value = "3:4",   label = "3:4 · Portrait" },
+  { value = "4:3",   label = "4:3 · Classic" },
+  { value = "9:16",  label = "9:16 · Vertical" },
+  { value = "16:9",  label = "16:9 · Landscape · Standard" },
+  { value = "21:9",  label = "21:9 · Ultrawide · Cinematic" },
+]
+
+[params.width]
+label = "Custom Width (px)"
+type = "integer"
+default = 2048
+min = 1024
+max = 4096
+optional = true
+hidden = true
+
+[params.height]
+label = "Custom Height (px)"
+type = "integer"
+default = 2048
+min = 1024
+max = 4096
+optional = true
+hidden = true
+
+[params.max_images]
+label = "Max Images per run"
+type = "integer"
+default = 1
+min = 1
+max = 15
+optional = true

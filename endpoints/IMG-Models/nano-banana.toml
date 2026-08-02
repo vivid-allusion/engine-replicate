@@ -1,0 +1,39 @@
+id = "nano-banana"
+label = "Nano Banana"
+category = "IMG"
+platform = "replicate"
+endpoint = "google/nano-banana"
+description = "Google's original Nano Banana image model. Still available but consider upgrading to Nano Banana 2 for better quality and more features."
+
+[pricing]
+base_cost = 0.039
+currency = "USD"
+note = "Superseded by Nano Banana 2. Pricing varies by aspect ratio."
+
+[params.aspect_ratio]
+label = "Aspect Ratio"
+type = "select"
+default = "16:9"
+optional = true
+options = [
+  { value = "1:1",  label = "1:1 · Square" },
+  { value = "9:16", label = "9:16 · Portrait · Vertical" },
+  { value = "16:9", label = "16:9 · Landscape · Standard" },
+]
+
+[params.num_images]
+label = "Images per run"
+type = "integer"
+default = 1
+min = 1
+max = 4
+
+[params.output_format]
+label = "Output Format"
+type = "select"
+default = "png"
+options = [
+  { value = "png", label = "PNG" },
+  { value = "jpg", label = "JPEG" },
+  { value = "webp", label = "WebP" },
+]

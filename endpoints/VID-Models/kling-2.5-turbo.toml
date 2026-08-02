@@ -1,0 +1,52 @@
+id = "kling-2.5-turbo-pro"
+label = "Kling 2.5 Turbo Pro"
+category = "VID"
+platform = "replicate"
+endpoint = "kwaivgi/kling-v2.5-turbo-pro"
+description = "Kling 2.5 Turbo Pro: pro-level text-to-video and image-to-video with smooth motion, cinematic depth, and remarkable prompt adherence. Supports first/last frame for interpolation."
+
+[pricing]
+cost_per_second = 0.07
+currency = "USD"
+
+[general]
+image_url_param = "start_image"
+duration_type = "seconds"
+duration_param_name = "duration"
+
+[params.aspect_ratio]
+label = "Aspect Ratio"
+type = "select"
+default = "16:9"
+optional = true
+options = [
+  { value = "16:9", label = "16:9 · Landscape" },
+  { value = "9:16", label = "9:16 · Portrait · Vertical" },
+  { value = "1:1",  label = "1:1 · Square" },
+]
+note = "Ignored when start_image is provided"
+
+[params.duration]
+label = "Duration"
+type = "select"
+default = "5"
+options = [
+  { value = "5",  label = "5s · Short" },
+  { value = "10", label = "10s · Long" },
+]
+
+[params.negative_prompt]
+label = "Negative Prompt"
+type = "text"
+optional = true
+default = ""
+
+[params.guidance_scale]
+label = "Guidance Scale (deprecated)"
+type = "number"
+default = 0.5
+min = 0.0
+max = 1.0
+optional = true
+hidden = true
+description = "Kept for backwards compatibility — this parameter is no longer used"

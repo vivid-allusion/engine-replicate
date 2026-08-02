@@ -1,0 +1,48 @@
+id = "wan-2.7-image"
+label = "Wan 2.7 Image"
+category = "IMG"
+platform = "replicate"
+endpoint = "wan-video/wan-2.7-image"
+description = "Alibaba's Wan 2.7 Image model: generate and edit images with thinking mode for enhanced reasoning. Supports text-to-image, image editing (up to 9 refs), and image set generation (up to 12 related images from one prompt)."
+
+[pricing]
+base_cost = 0.005
+currency = "USD"
+
+[params.size]
+label = "Resolution"
+type = "select"
+default = "2K"
+options = [
+  { value = "1K", label = "1K (~1024px) · Faster" },
+  { value = "2K", label = "2K (~2048px) · Standard" },
+]
+note = "1K and 2K auto-size based on input images when provided"
+
+[params.num_outputs]
+label = "Number of Images"
+type = "integer"
+default = 1
+min = 1
+max = 12
+
+[params.image_set_mode]
+label = "Image Set Mode"
+type = "boolean"
+default = false
+description = "Generate a coherent set of related images from a single prompt (e.g. character across seasons). When enabled, num_outputs can be up to 12."
+
+[params.thinking_mode]
+label = "Thinking Mode (Enhanced Reasoning)"
+type = "boolean"
+default = true
+description = "Enable enhanced reasoning for improved image quality. Text-to-image only (no input images, no image set mode). Increases generation time."
+
+[params.seed]
+label = "Random Seed"
+type = "integer"
+default = -1
+min = -1
+max = 2147483647
+optional = true
+hidden = true

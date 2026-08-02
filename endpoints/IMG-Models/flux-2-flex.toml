@@ -1,0 +1,118 @@
+id = "flux-2-flex"
+label = "Flux 2 Flex"
+category = "IMG"
+platform = "replicate"
+endpoint = "black-forest-labs/flux-2-flex"
+description = "Black Forest Labs' Flux 2 Flex: max-quality image generation with support for up to 10 reference images. Supports prompt upsampling, guidance scale control, and inference steps tuning for maximum creative control."
+
+[pricing]
+base_cost = 0.10
+currency = "USD"
+note = "Higher quality variant — more expensive but offers more control"
+
+[params.aspect_ratio]
+label = "Aspect Ratio"
+type = "select"
+default = "1:1"
+options = [
+  { value = "1:1",   label = "1:1 · Square" },
+  { value = "2:3",   label = "2:3 · Portrait" },
+  { value = "3:2",   label = "3:2 · Landscape" },
+  { value = "3:4",   label = "3:4 · Portrait" },
+  { value = "4:3",   label = "4:3 · Classic" },
+  { value = "9:16",  label = "9:16 · Vertical" },
+  { value = "16:9",  label = "16:9 · Landscape · Standard" },
+  { value = "21:9",  label = "21:9 · Ultrawide · Cinematic" },
+  { value = "match_input_image", label = "Match Input Image" },
+  { value = "custom", label = "Custom · Set width/height" },
+]
+
+[params.resolution]
+label = "Resolution (Megapixels)"
+type = "select"
+default = "1 MP"
+optional = true
+options = [
+  { value = "0.5 MP", label = "0.5 MP" },
+  { value = "1 MP",   label = "1 MP · Standard" },
+  { value = "2 MP",   label = "2 MP · High Quality" },
+  { value = "4 MP",   label = "4 MP · Maximum (1:1 only)" },
+]
+
+[params.width]
+label = "Custom Width (multiple of 16)"
+type = "integer"
+default = 1024
+min = 256
+max = 2048
+optional = true
+hidden = true
+
+[params.height]
+label = "Custom Height (multiple of 16)"
+type = "integer"
+default = 1024
+min = 256
+max = 2048
+optional = true
+hidden = true
+
+[params.output_format]
+label = "Output Format"
+type = "select"
+default = "webp"
+options = [
+  { value = "webp", label = "WebP · Default" },
+  { value = "jpg",  label = "JPEG" },
+  { value = "png",  label = "PNG · Lossless" },
+]
+
+[params.output_quality]
+label = "Output Quality (0-100)"
+type = "integer"
+default = 80
+min = 0
+max = 100
+hidden = true
+
+[params.safety_tolerance]
+label = "Safety Tolerance (1=strict, 5=permissive)"
+type = "integer"
+default = 2
+min = 1
+max = 5
+hidden = true
+
+[params.seed]
+label = "Random Seed"
+type = "integer"
+default = 0
+min = 0
+max = 2147483647
+optional = true
+hidden = true
+
+[params.prompt_upsampling]
+label = "Prompt Upsampling"
+type = "boolean"
+default = false
+hidden = true
+description = "Automatically modify the prompt for more creative generation"
+
+[params.steps]
+label = "Inference Steps"
+type = "integer"
+default = 50
+min = 1
+max = 100
+hidden = true
+
+[params.guidance]
+label = "Guidance Scale"
+type = "number"
+default = 3.5
+min = 0.0
+max = 20.0
+step = 0.5
+hidden = true
+description = "Controls how closely the output follows the prompt"
