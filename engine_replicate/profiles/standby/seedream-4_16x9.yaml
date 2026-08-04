@@ -1,10 +1,13 @@
-# Seedream 4 — 16:9
+# Seedream 4 — 16X9
 platform: replicate
 endpoint: bytedance/seedream-4
 media_type: image
 parameters:
   aspect_ratio: "16:9"
-  size: "2K"
+  size: "1K"
+  max_images: 1
+  sequential_image_generation: "disabled"
+  output_format: "png"
 pricing:
   base_cost: 0.05
   currency: USD

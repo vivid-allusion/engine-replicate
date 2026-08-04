@@ -1,10 +1,11 @@
-# Seedream 5 Lite — 1:1
+# Seedream 5 Lite — 1X1
 platform: replicate
 endpoint: bytedance/seedream-5-lite
 media_type: image
 parameters:
   aspect_ratio: "1:1"
-  size: "2K"
+  size: "1K"
+  max_images: 1
   sequential_image_generation: "disabled"
   output_format: "png"
 pricing:

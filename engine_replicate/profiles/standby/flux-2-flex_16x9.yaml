@@ -1,10 +1,11 @@
-# Flux 2 Flex — 16:9
+# Flux 2 Flex — 16X9
 platform: replicate
 endpoint: black-forest-labs/flux-2-flex
 media_type: image
 parameters:
   aspect_ratio: "16:9"
-  output_format: "webp"
+  output_format: "png"
+  num_outputs: 1
 pricing:
   base_cost: 0.1
   currency: USD

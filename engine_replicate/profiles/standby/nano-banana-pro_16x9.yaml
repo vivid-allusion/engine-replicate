@@ -1,4 +1,4 @@
-# Nano Banana Pro — 16:9
+# Nano Banana Pro — 16X9
 platform: replicate
 endpoint: google/nano-banana-pro
 media_type: image
@@ -6,6 +6,7 @@ parameters:
   aspect_ratio: "16:9"
   num_images: 1
   output_format: "png"
+  resolution: "1K"
   safety_filter_level: "block_only_high"
 pricing:
   base_cost: 0.14

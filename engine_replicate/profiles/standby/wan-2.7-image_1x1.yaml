@@ -1,0 +1,12 @@
+# Wan 2.7 Image — 1X1
+platform: replicate
+endpoint: wan-video/wan-2.7-image
+media_type: image
+parameters:
+  size: "1K"
+  num_outputs: 1
+  image_set_mode: false
+  thinking_mode: true
+pricing:
+  base_cost: 0.005
+  currency: USD
