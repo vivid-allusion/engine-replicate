@@ -60,7 +60,7 @@ class Engine:
                 )
                 raw_output = client.run(endpoint, input=replicate_input)
 
-                saved = self._save_results(raw_output, media_type, item.path.stem)
+                saved = self._save_results(raw_output, media_type, item.path.stem, idx)
                 if not saved:
                     output = OutputFile(
                         source_path=item.path,
@@ -134,7 +134,7 @@ class Engine:
 
         return replicate_input
 
-    def _save_results(self, raw_output, media_type: str, stem: str) -> list[Path]:
+    def _save_results(self, raw_output, media_type: str, stem: str, idx: int) -> list[Path]:
         if raw_output is None:
             return []
         if not isinstance(raw_output, list):
@@ -146,13 +146,13 @@ class Engine:
             if isinstance(item, str):
                 ext = self._infer_extension(item, media_type)
                 suffix = "" if len(raw_output) == 1 else f"_{i}"
-                dest = self._output_dir / f"{stem}-{ts}{suffix}{ext}"
+                dest = self._output_dir / f"{stem}-{idx}-{ts}{suffix}{ext}"
                 urllib.request.urlretrieve(item, dest)
                 saved.append(dest)
             elif hasattr(item, "read"):
                 ext = ".mp4" if media_type == "video" else ".png"
                 suffix = "" if len(raw_output) == 1 else f"_{i}"
-                dest = self._output_dir / f"{stem}-{ts}{suffix}{ext}"
+                dest = self._output_dir / f"{stem}-{idx}-{ts}{suffix}{ext}"
                 with open(dest, "wb") as f:
                     f.write(item.read())
                 saved.append(dest)
