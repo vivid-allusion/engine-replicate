@@ -1,9 +1,10 @@
-# SeeDream 4 — 2K
+# Seedream 4 — 16:9
 platform: replicate
 endpoint: bytedance/seedream-4
 media_type: image
 parameters:
+  aspect_ratio: "16:9"
   size: "2K"
 pricing:
   base_cost: 0.05
-  currency: "USD"
+  currency: USD

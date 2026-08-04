@@ -1,0 +1,10 @@
+# Seedream 4 — 1:1
+platform: replicate
+endpoint: bytedance/seedream-4
+media_type: image
+parameters:
+  aspect_ratio: "1:1"
+  size: "2K"
+pricing:
+  base_cost: 0.05
+  currency: USD

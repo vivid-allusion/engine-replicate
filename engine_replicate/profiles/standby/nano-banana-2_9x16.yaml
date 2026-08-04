@@ -1,9 +1,9 @@
-# Nano Banana 2 — 1:1
+# Nano Banana 2 — 9:16
 platform: replicate
 endpoint: google/nano-banana-2
 media_type: image
 parameters:
-  aspect_ratio: "1:1"
+  aspect_ratio: "9:16"
   output_format: "jpg"
   resolution: "1K"
 pricing:

@@ -1,0 +1,12 @@
+# Seedream 5 Lite — 9:16
+platform: replicate
+endpoint: bytedance/seedream-5-lite
+media_type: image
+parameters:
+  aspect_ratio: "9:16"
+  size: "2K"
+  sequential_image_generation: "disabled"
+  output_format: "png"
+pricing:
+  base_cost: 0.05
+  currency: USD

@@ -1,10 +1,11 @@
-# SeeDream 4.5 — 2K, single image
+# Seedream 4.5 — 9:16
 platform: replicate
 endpoint: bytedance/seedream-4.5
 media_type: image
 parameters:
+  aspect_ratio: "9:16"
   size: "2K"
   sequential_image_generation: "disabled"
 pricing:
   base_cost: 0.05
-  currency: "USD"
+  currency: USD

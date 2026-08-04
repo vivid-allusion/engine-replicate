@@ -1,12 +1,12 @@
-# Wan 2.7 Image — 2K, single image
+# Wan 2.7 Image — 2K
 platform: replicate
 endpoint: wan-video/wan-2.7-image
 media_type: image
 parameters:
   size: "2K"
   num_outputs: 1
-  image_set_mode: false
-  thinking_mode: true
+  image_set_mode: False
+  thinking_mode: True
 pricing:
   base_cost: 0.005
-  currency: "USD"
+  currency: USD
