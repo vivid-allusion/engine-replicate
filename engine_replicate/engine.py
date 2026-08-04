@@ -1,5 +1,6 @@
 import os
 import urllib.request
+from datetime import datetime
 from pathlib import Path
 
 from .datatypes import EngineError, InputFile, OutputFile, ProgressEvent
@@ -139,16 +140,19 @@ class Engine:
         if not isinstance(raw_output, list):
             raw_output = [raw_output]
 
+        ts = datetime.now().strftime("%H%M%S")
         saved = []
         for i, item in enumerate(raw_output):
             if isinstance(item, str):
                 ext = self._infer_extension(item, media_type)
-                dest = self._output_dir / f"{stem}{ext}" if len(raw_output) == 1 else self._output_dir / f"{stem}_{i}{ext}"
+                suffix = "" if len(raw_output) == 1 else f"_{i}"
+                dest = self._output_dir / f"{stem}-{ts}{suffix}{ext}"
                 urllib.request.urlretrieve(item, dest)
                 saved.append(dest)
             elif hasattr(item, "read"):
                 ext = ".mp4" if media_type == "video" else ".png"
-                dest = self._output_dir / f"{stem}{ext}" if len(raw_output) == 1 else self._output_dir / f"{stem}_{i}{ext}"
+                suffix = "" if len(raw_output) == 1 else f"_{i}"
+                dest = self._output_dir / f"{stem}-{ts}{suffix}{ext}"
                 with open(dest, "wb") as f:
                     f.write(item.read())
                 saved.append(dest)
