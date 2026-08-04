@@ -140,7 +140,7 @@ class Engine:
         if not isinstance(raw_output, list):
             raw_output = [raw_output]
 
-        ts = datetime.now().strftime("%H%M%S")
+        ts = datetime.now().strftime("%y%m%d_%H%M%S")
         saved = []
         for i, item in enumerate(raw_output):
             if isinstance(item, str):
