@@ -42,7 +42,7 @@ class Engine:
         total = len(inputs)
 
         for idx, item in enumerate(inputs):
-            self._emit(f"Processing bullet {idx + 1}/{total}...")
+            self._emit(f"Sending Markdown files to AI model ({idx + 1}/{total})...")
             prompt = f"{self._prefix}{item.prompt}{self._suffix}".strip()
             if not prompt:
                 output = OutputFile(
