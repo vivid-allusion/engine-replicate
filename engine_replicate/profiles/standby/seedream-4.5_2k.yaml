@@ -1,0 +1,10 @@
+# SeeDream 4.5 — 2K, single image
+platform: replicate
+endpoint: bytedance/seedream-4.5
+media_type: image
+parameters:
+  size: "2K"
+  sequential_image_generation: "disabled"
+pricing:
+  base_cost: 0.05
+  currency: "USD"

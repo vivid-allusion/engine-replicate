@@ -1,0 +1,11 @@
+# SeeDream 5 Lite — 2K, PNG, single image
+platform: replicate
+endpoint: bytedance/seedream-5-lite
+media_type: image
+parameters:
+  size: "2K"
+  sequential_image_generation: "disabled"
+  output_format: "png"
+pricing:
+  base_cost: 0.05
+  currency: "USD"

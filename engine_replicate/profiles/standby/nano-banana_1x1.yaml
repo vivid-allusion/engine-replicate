@@ -1,0 +1,10 @@
+# Nano Banana — single image, PNG
+platform: replicate
+endpoint: google/nano-banana
+media_type: image
+parameters:
+  num_images: 1
+  output_format: "png"
+pricing:
+  base_cost: 0.039
+  currency: "USD"

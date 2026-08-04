@@ -1,0 +1,11 @@
+# Nano Banana Pro — single image, PNG
+platform: replicate
+endpoint: google/nano-banana-pro
+media_type: image
+parameters:
+  num_images: 1
+  output_format: "png"
+  safety_filter_level: "block_only_high"
+pricing:
+  base_cost: 0.14
+  currency: "USD"
