@@ -13,7 +13,7 @@ class InputFile:
 
 @dataclass
 class OutputFile:
-    bullet_path: Path
+    source_path: Path
     path: Path | None = None
     status: Literal["ok", "error"] = "ok"
     error_msg: str = ""

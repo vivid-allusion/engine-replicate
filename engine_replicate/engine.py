@@ -46,7 +46,7 @@ class Engine:
             prompt = f"{self._prefix}{item.prompt}{self._suffix}".strip()
             if not prompt:
                 output = OutputFile(
-                    bullet_path=item.path,
+                    source_path=item.path,
                     status="error",
                     error_msg="Empty prompt after applying prefix/suffix",
                     media_type=media_type,
@@ -63,7 +63,7 @@ class Engine:
                 saved = self._save_results(raw_output, media_type)
                 if not saved:
                     output = OutputFile(
-                        bullet_path=item.path,
+                        source_path=item.path,
                         status="error",
                         error_msg="No output returned from replicate",
                         media_type=media_type,
@@ -72,7 +72,7 @@ class Engine:
                     for saved_path in saved:
                         results.append(
                             OutputFile(
-                                bullet_path=item.path,
+                                source_path=item.path,
                                 path=saved_path,
                                 status="ok",
                                 media_type=media_type,
@@ -82,7 +82,7 @@ class Engine:
 
             except Exception as exc:
                 output = OutputFile(
-                    bullet_path=item.path,
+                    source_path=item.path,
                     status="error",
                     error_msg=str(exc),
                     media_type=media_type,
