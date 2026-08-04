@@ -1,8 +1,9 @@
-# Nano Banana 2 — default profile (square, PNG)
+# Nano Banana 2 — default profile (square, 1 image, PNG)
 platform: replicate
 endpoint: google/nano-banana-2
 media_type: image
 parameters:
+  num_images: 1
   aspect_ratio: "1:1"
   output_format: "png"
 pricing:
