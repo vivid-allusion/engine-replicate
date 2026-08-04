@@ -1,6 +1,5 @@
 import os
 import urllib.request
-import uuid
 from pathlib import Path
 
 from .datatypes import EngineError, InputFile, OutputFile, ProgressEvent
@@ -60,7 +59,7 @@ class Engine:
                 )
                 raw_output = client.run(endpoint, input=replicate_input)
 
-                saved = self._save_results(raw_output, media_type)
+                saved = self._save_results(raw_output, media_type, item.path.stem)
                 if not saved:
                     output = OutputFile(
                         source_path=item.path,
@@ -134,22 +133,22 @@ class Engine:
 
         return replicate_input
 
-    def _save_results(self, raw_output, media_type: str) -> list[Path]:
+    def _save_results(self, raw_output, media_type: str, stem: str) -> list[Path]:
         if raw_output is None:
             return []
         if not isinstance(raw_output, list):
             raw_output = [raw_output]
 
         saved = []
-        for item in raw_output:
+        for i, item in enumerate(raw_output):
             if isinstance(item, str):
                 ext = self._infer_extension(item, media_type)
-                dest = self._output_dir / f"{uuid.uuid4().hex[:12]}{ext}"
+                dest = self._output_dir / f"{stem}{ext}" if len(raw_output) == 1 else self._output_dir / f"{stem}_{i}{ext}"
                 urllib.request.urlretrieve(item, dest)
                 saved.append(dest)
             elif hasattr(item, "read"):
                 ext = ".mp4" if media_type == "video" else ".png"
-                dest = self._output_dir / f"{uuid.uuid4().hex[:12]}{ext}"
+                dest = self._output_dir / f"{stem}{ext}" if len(raw_output) == 1 else self._output_dir / f"{stem}_{i}{ext}"
                 with open(dest, "wb") as f:
                     f.write(item.read())
                 saved.append(dest)
