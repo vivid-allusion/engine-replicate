@@ -137,7 +137,7 @@ class Engine:
     def _save_results(self, raw_output, media_type: str) -> list[Path]:
         if raw_output is None:
             return []
-        if isinstance(raw_output, str):
+        if not isinstance(raw_output, list):
             raw_output = [raw_output]
 
         saved = []
