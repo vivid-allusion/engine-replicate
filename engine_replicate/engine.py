@@ -43,9 +43,10 @@ class Engine:
 
         for idx, item in enumerate(inputs):
             stem = item.path.stem
-            prefix = f"[{idx + 1}/{total}]"
+            current = idx + 1
+            prefix = f"[{current}/{total}]"
 
-            self._emit(f"{prefix} Calling Replicate API...")
+            self._emit(f"{prefix} 📡 Calling Replicate API...")
             prompt = f"{self._prefix}{item.prompt}{self._suffix}".strip()
             if not prompt:
                 output = OutputFile(
@@ -62,9 +63,9 @@ class Engine:
                     params, prompt, item, media_type
                 )
                 raw_output = client.run(endpoint, input=replicate_input)
-                self._emit(f"{prefix} Response received")
+                self._emit(f"{prefix} ✅ Response received")
 
-                saved = self._save_results(raw_output, media_type, stem, idx, prefix)
+                saved = self._save_results(raw_output, media_type, stem, idx, prefix, current, total)
                 if not saved:
                     output = OutputFile(
                         source_path=item.path,
@@ -85,7 +86,7 @@ class Engine:
                     continue
 
             except Exception as exc:
-                self._emit(f"{prefix} Error: {exc}", level="error")
+                self._emit(f"{prefix} Error: {exc}", level="error", current=current, total=total)
                 output = OutputFile(
                     source_path=item.path,
                     status="error",
@@ -131,7 +132,7 @@ class Engine:
 
         return replicate_input
 
-    def _save_results(self, raw_output, media_type: str, stem: str, idx: int, prefix: str = "") -> list[Path]:
+    def _save_results(self, raw_output, media_type: str, stem: str, idx: int, prefix: str = "", current: int = 0, total: int = 0) -> list[Path]:
         if raw_output is None:
             return []
         if not isinstance(raw_output, list):
@@ -141,21 +142,21 @@ class Engine:
         saved = []
         for i, item in enumerate(raw_output):
             if isinstance(item, str):
-                self._emit(f"{prefix} Downloading...")
+                self._emit(f"{prefix} ⬇️  Downloading...")
                 ext = self._infer_extension(item, media_type)
                 suffix = "" if len(raw_output) == 1 else f"_{i}"
                 dest = self._output_dir / f"{stem}-{idx}-{ts}{suffix}{ext}"
                 urllib.request.urlretrieve(item, dest)
-                self._emit(f"{prefix} Saved: {dest.name}")
+                self._emit(f"{prefix} 💾 Saved: {dest.name}", current=current, total=total)
                 saved.append(dest)
             elif hasattr(item, "read"):
-                self._emit(f"{prefix} Saving file stream...")
+                self._emit(f"{prefix} ⬇️  Saving file stream...")
                 ext = ".mp4" if media_type == "video" else ".png"
                 suffix = "" if len(raw_output) == 1 else f"_{i}"
                 dest = self._output_dir / f"{stem}-{idx}-{ts}{suffix}{ext}"
                 with open(dest, "wb") as f:
                     f.write(item.read())
-                self._emit(f"{prefix} Saved: {dest.name}")
+                self._emit(f"{prefix} 💾 Saved: {dest.name}", current=current, total=total)
                 saved.append(dest)
         return saved
 
@@ -167,6 +168,6 @@ class Engine:
                 return video_ext
         return ".png"
 
-    def _emit(self, message: str, level: str = "info"):
+    def _emit(self, message: str, level: str = "info", current: int = 0, total: int = 0):
         if self._on_progress:
-            self._on_progress(ProgressEvent(message=message, level=level))
+            self._on_progress(ProgressEvent(message=message, level=level, current=current, total=total))

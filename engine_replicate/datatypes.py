@@ -25,6 +25,8 @@ class OutputFile:
 class ProgressEvent:
     message: str
     level: str = "info"
+    current: int = 0
+    total: int = 0
 
 
 class EngineError(Exception):
