@@ -118,27 +118,11 @@ class Engine:
         replicate_input.pop("prompt_prefix", None)
         replicate_input.pop("prompt_suffix", None)
 
-        if media_type == "image":
-            replicate_input["prompt"] = prompt
-            if item.reference_urls:
-                replicate_input["image"] = (
-                    item.reference_urls
-                    if len(item.reference_urls) > 1
-                    else item.reference_urls[0]
-                )
-        elif media_type == "video":
-            replicate_input["prompt"] = prompt
-            if item.reference_urls:
-                replicate_input["start_image"] = (
-                    item.reference_urls
-                    if len(item.reference_urls) > 1
-                    else item.reference_urls[0]
-                )
-            for key in ("duration", "fps"):
-                if key in item.metadata:
-                    replicate_input[key] = item.metadata[key]
-        else:
-            replicate_input["prompt"] = prompt
+        ref_key = self._profile.get("reference_param", "image_input")
+
+        replicate_input["prompt"] = prompt
+        if item.reference_urls:
+            replicate_input[ref_key] = item.reference_urls
 
         return replicate_input
 

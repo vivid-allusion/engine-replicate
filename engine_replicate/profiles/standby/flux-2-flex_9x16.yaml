@@ -2,6 +2,7 @@
 platform: replicate
 endpoint: black-forest-labs/flux-2-flex
 media_type: image
+reference_param: input_images
 parameters:
   aspect_ratio: "9:16"
   output_format: "png"
