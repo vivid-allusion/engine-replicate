@@ -58,6 +58,8 @@ class Engine:
                 results.append(output)
                 continue
 
+            self._emit(f"{prefix} 📝 Prompt: {prompt}")
+
             try:
                 replicate_input = self._build_replicate_input(
                     params, prompt, item, media_type
@@ -151,14 +153,43 @@ class Engine:
                 saved.append(dest)
             elif hasattr(item, "read"):
                 self._emit(f"{prefix} ⬇️  Saving file stream...")
-                ext = ".mp4" if media_type == "video" else ".png"
+                data = item.read()
+                ext = self._sniff_extension(data, media_type)
                 suffix = "" if len(raw_output) == 1 else f"_{i}"
                 dest = self._output_dir / f"{ts}-{stem}-{idx}{suffix}{ext}"
                 with open(dest, "wb") as f:
-                    f.write(item.read())
+                    f.write(data)
                 self._emit(f"{prefix} 💾 Saved: {dest.name}", current=current, total=total)
                 saved.append(dest)
         return saved
+
+    def _sniff_extension(self, data: bytes, media_type: str) -> str:
+        """Determine the real file extension from the stream's magic bytes.
+
+        Providers often return bytes whose type differs from the requested
+        format (e.g. JPEG data for a model run with ``output_format`` set) —
+        saving it under a guessed ``.png`` name produces files no viewer
+        matches by extension. Falls back to the profile's ``output_format``
+        parameter, then to the media-type default.
+        """
+        for magic, ext in (
+            (b"\xff\xd8\xff", ".jpg"),
+            (b"\x89PNG\r\n\x1a\n", ".png"),
+            (b"GIF87a", ".gif"),
+            (b"GIF89a", ".gif"),
+        ):
+            if data.startswith(magic):
+                return ext
+        if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+            return ".webp"
+        if data[4:8] == b"ftyp":
+            return ".mp4"
+        output_format = str(
+            self._profile.get("parameters", {}).get("output_format", "") or ""
+        ).strip().lstrip(".").lower()
+        if output_format and all(c.isalnum() for c in output_format):
+            return f".{output_format}"
+        return ".mp4" if media_type == "video" else ".png"
 
     def _infer_extension(self, url: str, media_type: str) -> str:
         if media_type == "video":

@@ -292,6 +292,99 @@ class TestEngineRun:
                     assert replicate_input["fps"] == 24
 
 
+class TestStreamSaveExtension:
+    """Stream outputs must be saved under the extension their bytes claim."""
+
+    def _run_stream(self, tmp_path, data: bytes, profile: dict | None = None):
+        from io import BytesIO
+
+        with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
+            mock_replicate = MagicMock()
+            mock_client = MagicMock()
+            mock_client.run.return_value = [BytesIO(data)]
+            mock_replicate.Client.return_value = mock_client
+            full_profile = {"endpoint": "test/model", "media_type": "image"}
+            full_profile.update(profile or {})
+            with patch.dict("sys.modules", {"replicate": mock_replicate}):
+                engine = Engine(full_profile, tmp_path)
+                return engine.run([InputFile(path=Path("b.md"), prompt="test")])
+
+    def test_jpeg_bytes_saved_with_jpg_extension(self, tmp_path):
+        results = self._run_stream(tmp_path, b"\xff\xd8\xff" + b"jpegdata")
+        assert results[0].status == "ok"
+        assert results[0].path.suffix == ".jpg"
+        assert results[0].path.read_bytes() == b"\xff\xd8\xff" + b"jpegdata"
+
+    def test_png_bytes_saved_with_png_extension(self, tmp_path):
+        results = self._run_stream(tmp_path, b"\x89PNG\r\n\x1a\n" + b"pngdata")
+        assert results[0].path.suffix == ".png"
+
+    def test_gif_bytes_saved_with_gif_extension(self, tmp_path):
+        results = self._run_stream(tmp_path, b"GIF89a" + b"gifdata")
+        assert results[0].path.suffix == ".gif"
+
+    def test_webp_bytes_saved_with_webp_extension(self, tmp_path):
+        results = self._run_stream(tmp_path, b"RIFF\x00\x00\x00\x00WEBP" + b"data")
+        assert results[0].path.suffix == ".webp"
+
+    def test_mp4_bytes_saved_with_mp4_extension(self, tmp_path):
+        results = self._run_stream(tmp_path, b"\x00\x00\x00\x18ftyp" + b"mp4data")
+        assert results[0].path.suffix == ".mp4"
+
+    def test_unknown_bytes_use_output_format_param(self, tmp_path):
+        results = self._run_stream(
+            tmp_path,
+            b"\xde\xad\xbe\xef",
+            profile={"parameters": {"output_format": "jpg"}},
+        )
+        assert results[0].path.suffix == ".jpg"
+
+    def test_unknown_bytes_fall_back_to_media_type_default(self, tmp_path):
+        results = self._run_stream(tmp_path, b"\xde\xad\xbe\xef")
+        assert results[0].path.suffix == ".png"
+
+
+class TestPromptLogging:
+    def test_wrapped_prompt_is_emitted_to_progress(self, tmp_path):
+        with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
+            mock_replicate = MagicMock()
+            mock_client = MagicMock()
+            mock_client.run.return_value = []
+            mock_replicate.Client.return_value = mock_client
+            progress_calls = []
+            with patch.dict("sys.modules", {"replicate": mock_replicate}):
+                engine = Engine(
+                    {
+                        "endpoint": "test/model",
+                        "media_type": "image",
+                        "prompt_prefix": "PREFIX: ",
+                        "prompt_suffix": " :SUFFIX",
+                    },
+                    tmp_path,
+                    on_progress=progress_calls.append,
+                )
+                engine.run([InputFile(path=Path("b.md"), prompt="hello")])
+
+            prompts = [c.message for c in progress_calls if "Prompt:" in c.message]
+            assert prompts == ["[1/1] 📝 Prompt: PREFIX: hello :SUFFIX"]
+
+    def test_empty_prompt_is_not_logged(self, tmp_path):
+        with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
+            mock_replicate = MagicMock()
+            mock_client = MagicMock()
+            mock_replicate.Client.return_value = mock_client
+            progress_calls = []
+            with patch.dict("sys.modules", {"replicate": mock_replicate}):
+                engine = Engine(
+                    {"endpoint": "test/model", "media_type": "image"},
+                    tmp_path,
+                    on_progress=progress_calls.append,
+                )
+                engine.run([InputFile(path=Path("b.md"), prompt="   ")])
+
+            assert not any("Prompt:" in c.message for c in progress_calls)
+
+
 class TestImports:
     def test_init_exports_all_names(self):
         from engine_replicate import (
