@@ -248,6 +248,33 @@ class TestEngineRun:
                     assert results[0].path is not None
                     mock_retrieve.assert_called_once()
 
+    def test_save_results_mirrors_relative_dir(self, tmp_path):
+        with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
+            mock_replicate = MagicMock()
+            mock_client = MagicMock()
+            mock_client.run.return_value = ["https://example.com/img.png"]
+            mock_replicate.Client.return_value = mock_client
+            with patch.dict("sys.modules", {"replicate": mock_replicate}):
+                with patch("urllib.request.urlretrieve") as mock_retrieve:
+                    mock_retrieve.return_value = (None, None)
+                    engine = Engine(
+                        {"endpoint": "test/model", "media_type": "image"},
+                        tmp_path,
+                    )
+                    results = engine.run(
+                        [
+                            InputFile(
+                                path=Path("b.md"),
+                                prompt="test",
+                                metadata={"relative_dir": "scene1/nested"},
+                            )
+                        ]
+                    )
+                    assert len(results) == 1
+                    assert results[0].status == "ok"
+                    assert results[0].path is not None
+                    assert results[0].path.parent == tmp_path / "scene1" / "nested"
+
     def test_none_output_returns_error(self, tmp_path):
         with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
             mock_replicate = MagicMock()
