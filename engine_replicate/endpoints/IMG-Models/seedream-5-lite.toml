@@ -30,6 +30,8 @@ options = [
   { value = "9:16",  label = "9:16 · Vertical" },
   { value = "16:9",  label = "16:9 · Landscape · Standard" },
   { value = "21:9",  label = "21:9 · Ultrawide · Cinematic" },
+  { value = "3:2",   label = "3:2 · Landscape" },
+  { value = "2:3",   label = "2:3 · Portrait" },
   { value = "match_input_image", label = "Match Input Image" },
 ]
 
@@ -57,7 +59,7 @@ type = "select"
 default = "png"
 options = [
   { value = "png", label = "PNG · Lossless" },
-  { value = "jpg", label = "JPEG" },
+  { value = "jpeg", label = "JPEG" },
 ]
 
 [params.return_byteplus_urls]

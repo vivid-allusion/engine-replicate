@@ -39,7 +39,6 @@ type = "select"
 default = "1K"
 optional = true
 options = [
-  { value = "512px", label = "512px · Fastest" },
   { value = "1K",    label = "1K (1024px short side) · Standard" },
   { value = "2K",    label = "2K (2048px short side) · High Quality" },
   { value = "4K",    label = "4K (4096px short side) · Maximum" },

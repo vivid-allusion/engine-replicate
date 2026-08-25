@@ -20,6 +20,8 @@ options = [
   { value = "3:2",   label = "3:2 · Landscape" },
   { value = "3:4",   label = "3:4 · Portrait" },
   { value = "4:3",   label = "4:3 · Classic" },
+  { value = "4:5",   label = "4:5 · Portrait" },
+  { value = "5:4",   label = "5:4 · Landscape" },
   { value = "9:16",  label = "9:16 · Vertical" },
   { value = "16:9",  label = "16:9 · Landscape · Standard" },
   { value = "21:9",  label = "21:9 · Ultrawide · Cinematic" },
@@ -37,6 +39,7 @@ options = [
   { value = "1 MP",   label = "1 MP · Standard" },
   { value = "2 MP",   label = "2 MP · High Quality" },
   { value = "4 MP",   label = "4 MP · Maximum (1:1 only)" },
+  { value = "match_input_image", label = "Match Input Image" },
 ]
 
 [params.width]
@@ -95,24 +98,24 @@ hidden = true
 [params.prompt_upsampling]
 label = "Prompt Upsampling"
 type = "boolean"
-default = false
+default = true
 hidden = true
 description = "Automatically modify the prompt for more creative generation"
 
 [params.steps]
 label = "Inference Steps"
 type = "integer"
-default = 50
+default = 30
 min = 1
-max = 100
+max = 50
 hidden = true
 
 [params.guidance]
 label = "Guidance Scale"
 type = "number"
-default = 3.5
-min = 0.0
-max = 20.0
+default = 4.5
+min = 1.5
+max = 10.0
 step = 0.5
 hidden = true
 description = "Controls how closely the output follows the prompt"

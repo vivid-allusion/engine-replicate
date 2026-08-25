@@ -14,6 +14,7 @@ label = "Resolution"
 type = "select"
 default = "2K"
 options = [
+  { value = "1K",    label = "1K (1024px) · Fast" },
   { value = "2K",    label = "2K (2048px) · Standard" },
   { value = "4K",    label = "4K (4096px) · High Quality" },
   { value = "custom", label = "Custom · Set width/height manually" },
@@ -31,6 +32,9 @@ options = [
   { value = "9:16",  label = "9:16 · Vertical" },
   { value = "16:9",  label = "16:9 · Landscape · Standard" },
   { value = "21:9",  label = "21:9 · Ultrawide · Cinematic" },
+  { value = "3:2",   label = "3:2 · Landscape" },
+  { value = "2:3",   label = "2:3 · Portrait" },
+  { value = "match_input_image", label = "Match Input Image" },
 ]
 
 [params.width]
@@ -58,3 +62,10 @@ default = 1
 min = 1
 max = 15
 optional = true
+
+[params.enhance_prompt]
+label = "Enhance Prompt"
+type = "boolean"
+default = true
+hidden = true
+description = "Automatically refine the prompt for better generation quality"

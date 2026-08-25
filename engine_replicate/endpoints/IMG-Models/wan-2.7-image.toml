@@ -16,6 +16,16 @@ default = "2K"
 options = [
   { value = "1K", label = "1K (~1024px) · Faster" },
   { value = "2K", label = "2K (~2048px) · Standard" },
+  { value = "1024*1024", label = "1024×1024 · Square" },
+  { value = "2048*2048", label = "2048×2048 · Square HD" },
+  { value = "1280*720", label = "1280×720 · Landscape" },
+  { value = "720*1280", label = "720×1280 · Portrait" },
+  { value = "2048*1152", label = "2048×1152 · Landscape HD" },
+  { value = "1152*2048", label = "1152×2048 · Portrait HD" },
+  { value = "1024*768", label = "1024×768 · 4:3" },
+  { value = "768*1024", label = "768×1024 · 3:4" },
+  { value = "2048*1536", label = "2048×1536 · 4:3 HD" },
+  { value = "1536*2048", label = "1536×2048 · 3:4 HD" },
 ]
 note = "1K and 2K auto-size based on input images when provided"
 

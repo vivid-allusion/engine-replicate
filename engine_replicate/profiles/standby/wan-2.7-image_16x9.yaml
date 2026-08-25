@@ -8,6 +8,8 @@ parameters:
   num_outputs: 1
   image_set_mode: false
   thinking_mode: true
+  # Advanced parameters (uncomment to use)
+  #seed: -1
 pricing:
   base_cost: 0.005
   currency: USD

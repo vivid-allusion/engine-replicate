@@ -1,12 +1,12 @@
-id = "flux-2-pro"
-label = "Flux 2 Pro"
+id = "flux-2-max"
+label = "Flux 2 Max"
 category = "IMG"
 platform = "replicate"
-endpoint = "black-forest-labs/flux-2-pro"
-description = "Black Forest Labs' Flux 2 Pro: high-quality image generation and editing with support for up to 8 reference images. Excellent text rendering, photorealistic details, and character consistency. Uses Mistral-3 24B vision-language model + rectified flow transformer."
+endpoint = "black-forest-labs/flux-2-max"
+description = "The highest fidelity image model from Black Forest Labs. Supports up to 8 reference images for image-to-image generation."
 
 [pricing]
-base_cost = 0.06
+base_cost = 0.04
 currency = "USD"
 
 [params.aspect_ratio]
@@ -23,7 +23,6 @@ options = [
   { value = "5:4",   label = "5:4 · Landscape" },
   { value = "9:16",  label = "9:16 · Vertical" },
   { value = "16:9",  label = "16:9 · Landscape · Standard" },
-  { value = "21:9",  label = "21:9 · Ultrawide · Cinematic" },
   { value = "match_input_image", label = "Match Input Image" },
   { value = "custom", label = "Custom · Set width/height" },
 ]
@@ -38,10 +37,9 @@ options = [
   { value = "0.5 MP", label = "0.5 MP" },
   { value = "1 MP",   label = "1 MP · Standard" },
   { value = "2 MP",   label = "2 MP · High Quality" },
-  { value = "4 MP",   label = "4 MP · Maximum (1:1 only)" },
+  { value = "4 MP",   label = "4 MP · Maximum" },
   { value = "match_input_image", label = "Match Input Image" },
 ]
-note = "Max image size is 2048x2048. Higher resolutions may not respect the resolution if aspect ratio is not 1:1."
 
 [params.width]
 label = "Custom Width (multiple of 16)"
@@ -51,6 +49,7 @@ min = 256
 max = 2048
 optional = true
 hidden = true
+description = "Only used when aspect_ratio='custom'"
 
 [params.height]
 label = "Custom Height (multiple of 16)"
@@ -60,6 +59,7 @@ min = 256
 max = 2048
 optional = true
 hidden = true
+description = "Only used when aspect_ratio='custom'"
 
 [params.output_format]
 label = "Output Format"
