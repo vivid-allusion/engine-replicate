@@ -1,5 +1,7 @@
+import importlib
 import os
 import urllib.request
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
@@ -18,7 +20,7 @@ class Engine:
         profile: dict,
         output_dir: str | Path,
         api_key: str | None = None,
-        on_progress: "Callable[[str], None] | None" = None,
+        on_progress: Callable[[str], None] | None = None,
     ):
         self._profile = profile
         self._output_dir = Path(output_dir)
@@ -46,6 +48,10 @@ class Engine:
             current = idx + 1
             prefix = f"[{current}/{total}]"
             rel_dir = str(item.metadata.get("relative_dir", "") or "")
+            dest_dir = self._output_dir / rel_dir if rel_dir else self._output_dir
+            ts = datetime.now().strftime("%y%m%d_%H%M%S")
+            ext = self._default_extension(media_type)
+            expected = dest_dir / f"{ts}-{stem}-{idx}{ext}"
 
             self._emit(f"{prefix} 📡 Calling Replicate API...")
             prompt = f"{self._prefix}{item.prompt}{self._suffix}".strip()
@@ -55,6 +61,7 @@ class Engine:
                     status="error",
                     error_msg="Empty prompt after applying prefix/suffix",
                     media_type=media_type,
+                    expected_path=expected,
                 )
                 results.append(output)
                 continue
@@ -62,9 +69,7 @@ class Engine:
             self._emit(f"{prefix} 📝 Prompt: {prompt}")
 
             try:
-                replicate_input = self._build_replicate_input(
-                    params, prompt, item, media_type
-                )
+                replicate_input = self._build_replicate_input(params, prompt, item, media_type)
                 raw_output = client.run(endpoint, input=replicate_input)
                 self._emit(f"{prefix} ✅ Response received")
                 self._emit(f"{prefix} 📦 Payload: {replicate_input}")
@@ -86,6 +91,7 @@ class Engine:
                         status="error",
                         error_msg="No output returned from replicate",
                         media_type=media_type,
+                        expected_path=expected,
                     )
                 else:
                     for saved_path in saved:
@@ -107,6 +113,7 @@ class Engine:
                     status="error",
                     error_msg=str(exc),
                     media_type=media_type,
+                    expected_path=expected,
                 )
 
             results.append(output)
@@ -117,20 +124,28 @@ class Engine:
         if not self._profile.get("endpoint"):
             raise EngineError("Missing or empty 'endpoint' in profile")
         try:
-            import replicate
+            importlib.import_module("replicate")
         except ImportError:
-            raise EngineError(
-                "replicate SDK not installed. Run: pip install replicate"
-            ) from None
+            raise EngineError("replicate SDK not installed. Run: pip install replicate") from None
         if not self._resolve_api_key():
-            raise EngineError(
-                f"{self.API_KEY_ENV_VAR} not set in environment or .env file"
-            )
+            raise EngineError(f"{self.API_KEY_ENV_VAR} not set in environment or .env file")
 
     def _resolve_api_key(self) -> str:
         if self._api_key:
             return self._api_key
         return os.environ.get(self.API_KEY_ENV_VAR, "")
+
+    def _default_extension(self, media_type: str) -> str:
+        """Profile-driven extension used for precomputed output names."""
+        output_format = (
+            str(self._profile.get("parameters", {}).get("output_format", "") or "")
+            .strip()
+            .lstrip(".")
+            .lower()
+        )
+        if output_format and all(c.isalnum() for c in output_format):
+            return f".{output_format}"
+        return ".mp4" if media_type == "video" else ".png"
 
     def _build_replicate_input(
         self, params: dict, prompt: str, item: InputFile, media_type: str
@@ -223,9 +238,12 @@ class Engine:
             return ".webp"
         if data[4:8] == b"ftyp":
             return ".mp4"
-        output_format = str(
-            self._profile.get("parameters", {}).get("output_format", "") or ""
-        ).strip().lstrip(".").lower()
+        output_format = (
+            str(self._profile.get("parameters", {}).get("output_format", "") or "")
+            .strip()
+            .lstrip(".")
+            .lower()
+        )
         if output_format and all(c.isalnum() for c in output_format):
             return f".{output_format}"
         return ".mp4" if media_type == "video" else ".png"

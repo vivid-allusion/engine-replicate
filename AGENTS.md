@@ -21,6 +21,9 @@ discover this Engine, load it via `engine_loader.py`, and call
 - **`Engine.run(inputs: list[InputFile]) -> list[OutputFile]`** is the ONLY
   entry point Vehicles call. Returns ALL results — success and failure —
   as OutputFile objects. Never raises for per-bullet failures.
+- **Error results carry `expected_path`**: the destination filename is
+  precomputed BEFORE the API call (profile `output_format`/media default
+  extension) so Vehicles can write error placeholders at the exact name.
 - **`EngineError`** is for unrecoverable pre-flight failures only: missing
   API key, invalid profile, provider auth rejection.
 - **`datatypes.py`** defines InputFile, OutputFile, ProgressEvent,

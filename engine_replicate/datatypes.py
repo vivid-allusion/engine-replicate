@@ -19,6 +19,7 @@ class OutputFile:
     error_msg: str = ""
     media_type: str = ""
     metadata: dict = field(default_factory=dict)
+    expected_path: Path | None = None
 
 
 @dataclass

@@ -6,8 +6,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from engine_replicate import Engine, EngineError, InputFile, OutputFile, ProgressEvent  # noqa: E402
 import engine_replicate.metadata as meta  # noqa: E402
+from engine_replicate import Engine, EngineError, InputFile, OutputFile, ProgressEvent  # noqa: E402
 
 
 class TestDatatypes:
@@ -19,17 +19,18 @@ class TestDatatypes:
         assert f.metadata == {}
 
     def test_outputfile_defaults(self):
-        o = OutputFile(bullet_path=Path("test.md"))
-        assert o.bullet_path == Path("test.md")
+        o = OutputFile(source_path=Path("test.md"))
+        assert o.source_path == Path("test.md")
         assert o.path is None
         assert o.status == "ok"
         assert o.error_msg == ""
         assert o.media_type == ""
         assert o.metadata == {}
+        assert o.expected_path is None
 
     def test_outputfile_error_status(self):
         o = OutputFile(
-            bullet_path=Path("test.md"),
+            source_path=Path("test.md"),
             status="error",
             error_msg="timeout",
             media_type="image",
@@ -96,7 +97,7 @@ class TestEngineInitPurity:
 class TestEnginePreflight:
     def test_missing_endpoint_raises(self):
         engine = Engine({"media_type": "image"}, "/tmp/out")
-        with pytest.raises(EngineError, match="Missing 'endpoint'"):
+        with pytest.raises(EngineError, match="Missing or empty 'endpoint'"):
             engine.run([])
 
     @patch.dict("os.environ", {}, clear=True)
@@ -144,7 +145,7 @@ class TestEngineRun:
                 engine.run([InputFile(path=Path("b.md"), prompt="test")])
 
             assert len(progress_calls) >= 1
-            assert "Processing bullet" in progress_calls[0]
+            assert any("Calling Replicate API" in c.message for c in progress_calls)
 
     def test_applies_prefix_suffix(self, tmp_path):
         with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
@@ -214,18 +215,16 @@ class TestEngineRun:
             ]
             mock_replicate.Client.return_value = mock_client
             with patch.dict("sys.modules", {"replicate": mock_replicate}):
-                engine = Engine(
-                    {"endpoint": "test/model", "media_type": "image"},
-                    tmp_path,
-                )
-                bullets = [
-                    InputFile(path=Path(f"b{i}.md"), prompt="test")
-                    for i in range(3)
-                ]
-                results = engine.run(bullets)
-                statuses = [r.status for r in results]
-                assert statuses.count("ok") == 2
-                assert statuses.count("error") == 1
+                with patch("urllib.request.urlretrieve"):
+                    engine = Engine(
+                        {"endpoint": "test/model", "media_type": "image"},
+                        tmp_path,
+                    )
+                    bullets = [InputFile(path=Path(f"b{i}.md"), prompt="test") for i in range(3)]
+                    results = engine.run(bullets)
+                    statuses = [r.status for r in results]
+                    assert statuses.count("ok") == 2
+                    assert statuses.count("error") == 1
 
     def test_save_results_downloads_urls(self, tmp_path):
         with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
@@ -240,9 +239,7 @@ class TestEngineRun:
                         {"endpoint": "test/model", "media_type": "image"},
                         tmp_path,
                     )
-                    results = engine.run(
-                        [InputFile(path=Path("b.md"), prompt="test")]
-                    )
+                    results = engine.run([InputFile(path=Path("b.md"), prompt="test")])
                     assert len(results) == 1
                     assert results[0].status == "ok"
                     assert results[0].path is not None
@@ -286,9 +283,7 @@ class TestEngineRun:
                     {"endpoint": "test/model", "media_type": "image"},
                     tmp_path,
                 )
-                results = engine.run(
-                    [InputFile(path=Path("b.md"), prompt="test")]
-                )
+                results = engine.run([InputFile(path=Path("b.md"), prompt="test")])
                 assert len(results) == 1
                 assert results[0].status == "error"
                 assert "No output" in results[0].error_msg
@@ -302,19 +297,25 @@ class TestEngineRun:
             with patch.dict("sys.modules", {"replicate": mock_replicate}):
                 with patch("urllib.request.urlretrieve"):
                     engine = Engine(
-                        {"endpoint": "test/model", "media_type": "video"},
+                        {
+                            "endpoint": "test/model",
+                            "media_type": "video",
+                            "reference_param": "start_image",
+                            "parameters": {"duration": 5, "fps": 24},
+                        },
                         tmp_path,
                     )
-                    engine.run([
-                        InputFile(
-                            path=Path("b.md"),
-                            prompt="test",
-                            reference_urls=["https://ref.com/img.jpg"],
-                            metadata={"duration": 5, "fps": 24},
-                        )
-                    ])
+                    engine.run(
+                        [
+                            InputFile(
+                                path=Path("b.md"),
+                                prompt="test",
+                                reference_urls=["https://ref.com/img.jpg"],
+                            )
+                        ]
+                    )
                     replicate_input = mock_client.run.call_args[1]["input"]
-                    assert replicate_input["start_image"] == "https://ref.com/img.jpg"
+                    assert replicate_input["start_image"] == ["https://ref.com/img.jpg"]
                     assert replicate_input["duration"] == 5
                     assert replicate_input["fps"] == 24
 
@@ -412,6 +413,45 @@ class TestPromptLogging:
             assert not any("Prompt:" in c.message for c in progress_calls)
 
 
+class TestExpectedPath:
+    """Error results must carry the destination the run would have used."""
+
+    def _run_error(self, tmp_path, profile: dict | None = None):
+        with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
+            mock_replicate = MagicMock()
+            mock_client = MagicMock()
+            mock_client.run.side_effect = RuntimeError("API timeout")
+            mock_replicate.Client.return_value = mock_client
+            full_profile = {"endpoint": "test/model", "media_type": "image"}
+            full_profile.update(profile or {})
+            with patch.dict("sys.modules", {"replicate": mock_replicate}):
+                engine = Engine(full_profile, tmp_path)
+                return engine.run([InputFile(path=Path("b.md"), prompt="test")])
+
+    def test_exception_error_carries_expected_path(self, tmp_path):
+        results = self._run_error(tmp_path)
+        assert results[0].status == "error"
+        assert results[0].expected_path is not None
+        assert results[0].expected_path.parent == tmp_path
+        assert results[0].expected_path.name.startswith("2")
+        assert results[0].expected_path.stem.endswith("-b-0")
+
+    def test_expected_path_uses_output_format_extension(self, tmp_path):
+        results = self._run_error(tmp_path, profile={"parameters": {"output_format": "jpg"}})
+        assert results[0].expected_path.suffix == ".jpg"
+
+    def test_empty_prompt_error_carries_expected_path(self, tmp_path):
+        with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
+            mock_replicate = MagicMock()
+            mock_replicate.Client.return_value = MagicMock()
+            with patch.dict("sys.modules", {"replicate": mock_replicate}):
+                engine = Engine({"endpoint": "test/model", "media_type": "image"}, tmp_path)
+                results = engine.run([InputFile(path=Path("b.md"), prompt="  ")])
+        assert results[0].status == "error"
+        assert results[0].expected_path is not None
+        assert results[0].expected_path.stem.endswith("-b-0")
+
+
 class TestImports:
     def test_init_exports_all_names(self):
         from engine_replicate import (
@@ -421,6 +461,7 @@ class TestImports:
             OutputFile,
             ProgressEvent,
         )
+
         assert Engine is not None
         assert InputFile is not None
         assert OutputFile is not None
