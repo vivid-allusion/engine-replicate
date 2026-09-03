@@ -14,6 +14,7 @@ note = "Cost varies: 480p at $0.018/s, 720p at $0.036/s"
 image_url_param = "image"
 duration_type = "seconds"
 duration_param_name = "duration"
+slots = ["reference_images", "reference_videos", "reference_audios"]
 
 [params.resolution]
 label = "Resolution"

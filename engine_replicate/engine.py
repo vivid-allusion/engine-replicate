@@ -154,13 +154,30 @@ class Engine:
         replicate_input.pop("prompt_prefix", None)
         replicate_input.pop("prompt_suffix", None)
 
-        ref_key = self._profile.get("reference_param", "image_input")
-
         replicate_input["prompt"] = prompt
         if item.reference_urls:
-            replicate_input[ref_key] = item.reference_urls
+            replicate_input[self._reference_key()] = item.reference_urls
+        for slot, urls in item.references.items():
+            if urls or slot in self._required_slots():
+                replicate_input[slot] = urls
+
+        duration = item.metadata.get("duration")
+        if duration is not None:
+            replicate_input[self._profile.get("duration_param_name", "duration")] = duration
 
         return replicate_input
+
+    def _reference_key(self) -> str:
+        """Primary input key: profile's image_url_param, else reference_param,
+        else the provider default image_input."""
+        for key in ("image_url_param", "reference_param"):
+            value = self._profile.get(key)
+            if value:
+                return str(value)
+        return "image_input"
+
+    def _required_slots(self) -> set[str]:
+        return set(self._profile.get("required_slots") or [])
 
     def _save_results(
         self,

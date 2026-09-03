@@ -14,6 +14,7 @@ note = "Pro mode costs more. 4K mode costs additional."
 image_url_param = "start_image"
 duration_type = "seconds"
 duration_param_name = "duration"
+slots = ["end_image"]
 
 [params.mode]
 label = "Quality Mode"

@@ -16,6 +16,7 @@ class TestDatatypes:
         assert f.path == Path("test.md")
         assert f.prompt == "hello"
         assert f.reference_urls == []
+        assert f.references == {}
         assert f.metadata == {}
 
     def test_outputfile_defaults(self):
@@ -467,3 +468,99 @@ class TestImports:
         assert OutputFile is not None
         assert ProgressEvent is not None
         assert EngineError is not None
+
+
+class TestBuildReplicateInput:
+    """Slot routing + per-bullet duration override for video payloads."""
+
+    def _build(self, profile, item, params=None):
+        engine = Engine(profile, "/tmp/out")
+        return engine._build_replicate_input(params or {}, item.prompt, item, "video")
+
+    def test_seedance_shaped_payload_dict(self):
+        profile = {
+            "endpoint": "bytedance/seedance-1-pro",
+            "image_url_param": "image",
+            "duration_param_name": "duration",
+        }
+        item = InputFile(
+            path=Path("b.md"),
+            prompt="a cinematic pan",
+            reference_urls=["https://ref.com/start.jpg"],
+            references={"reference_images": ["https://ref.com/img.jpg"]},
+            metadata={"duration": "auto"},
+        )
+        payload = self._build(profile, item)
+        assert payload == {
+            "prompt": "a cinematic pan",
+            "image": ["https://ref.com/start.jpg"],
+            "reference_images": ["https://ref.com/img.jpg"],
+            "duration": "auto",
+        }
+
+    def test_primary_key_prefers_image_url_param(self):
+        profile = {
+            "image_url_param": "start_image",
+            "reference_param": "images",
+        }
+        item = InputFile(path=Path("b.md"), prompt="p", reference_urls=["https://x.com/a.jpg"])
+        payload = self._build(profile, item)
+        assert payload["start_image"] == ["https://x.com/a.jpg"]
+        assert "images" not in payload
+
+    def test_primary_key_falls_back_to_reference_param(self):
+        profile = {"reference_param": "images"}
+        item = InputFile(path=Path("b.md"), prompt="p", reference_urls=["https://x.com/a.jpg"])
+        payload = self._build(profile, item)
+        assert payload["images"] == ["https://x.com/a.jpg"]
+
+    def test_primary_key_falls_back_to_image_input(self):
+        profile = {"endpoint": "test/model"}
+        item = InputFile(path=Path("b.md"), prompt="p", reference_urls=["https://x.com/a.jpg"])
+        payload = self._build(profile, item)
+        assert payload["image_input"] == ["https://x.com/a.jpg"]
+
+    def test_named_slots_route_to_own_keys(self):
+        profile = {"endpoint": "test/model"}
+        item = InputFile(
+            path=Path("b.md"),
+            prompt="p",
+            references={
+                "reference_images": ["https://x.com/i.jpg"],
+                "reference_videos": ["https://x.com/v.mp4"],
+            },
+        )
+        payload = self._build(profile, item)
+        assert payload["reference_images"] == ["https://x.com/i.jpg"]
+        assert payload["reference_videos"] == ["https://x.com/v.mp4"]
+
+    def test_empty_named_list_omitted_by_default(self):
+        profile = {"endpoint": "test/model"}
+        item = InputFile(path=Path("b.md"), prompt="p", references={"reference_images": []})
+        payload = self._build(profile, item)
+        assert "reference_images" not in payload
+
+    def test_empty_named_list_emitted_when_required(self):
+        profile = {"endpoint": "test/model", "required_slots": ["reference_images"]}
+        item = InputFile(path=Path("b.md"), prompt="p", references={"reference_images": []})
+        payload = self._build(profile, item)
+        assert payload["reference_images"] == []
+
+    def test_duration_override_verbatim_int(self):
+        profile = {"endpoint": "test/model", "duration_param_name": "duration"}
+        item = InputFile(path=Path("b.md"), prompt="p", metadata={"duration": 7})
+        payload = self._build(profile, item)
+        assert payload["duration"] == 7
+
+    def test_duration_token_stays_string(self):
+        profile = {"endpoint": "test/model", "duration_param_name": "duration"}
+        item = InputFile(path=Path("b.md"), prompt="p", metadata={"duration": "auto"})
+        payload = self._build(profile, item)
+        assert payload["duration"] == "auto"
+
+    def test_no_metadata_duration_leaves_params_untouched(self):
+        profile = {"endpoint": "test/model", "duration_param_name": "duration"}
+        item = InputFile(path=Path("b.md"), prompt="p", metadata={})
+        payload = self._build(profile, item, params={"aspect_ratio": "16:9"})
+        assert "duration" not in payload
+        assert payload["aspect_ratio"] == "16:9"
