@@ -1,0 +1,18 @@
+# Nano Banana 2 — 1:1 · 1K
+platform: replicate
+endpoint: google/nano-banana-2
+media_type: image
+parameters:
+  aspect_ratio: "1:1"
+  output_format: "png"
+  resolution: "1K"
+  # Advanced parameters (uncomment to use)
+  #google_search: false
+  #image_search: false
+pricing:
+  base_cost: 0.014
+  currency: USD
+
+# Prompt modifications (uncomment to use)
+#prompt_prefix: ''
+#prompt_suffix: ''

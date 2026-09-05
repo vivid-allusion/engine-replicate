@@ -21,4 +21,4 @@ build-backend = "setuptools.backends._legacy:_Backend"
 packages = ["engine_replicate"]
 
 [tool.setuptools.package-data]
-engine_replicate = ["endpoints/**/*.toml", "endpoints/**/*.gitkeep", "profiles/standby/*.yaml"]
+engine_replicate = ["endpoints/**/*.toml", "endpoints/**/*.gitkeep", "profiles/standby/**/*.yaml"]

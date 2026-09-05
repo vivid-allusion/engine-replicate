@@ -1,0 +1,14 @@
+# Nano Banana — 9:16
+platform: replicate
+endpoint: google/nano-banana
+media_type: image
+parameters:
+  aspect_ratio: "9:16"
+  output_format: "png"
+pricing:
+  base_cost: 0.039
+  currency: USD
+
+# Prompt modifications (uncomment to use)
+#prompt_prefix: ''
+#prompt_suffix: ''

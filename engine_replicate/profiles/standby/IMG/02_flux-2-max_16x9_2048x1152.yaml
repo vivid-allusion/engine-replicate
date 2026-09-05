@@ -1,0 +1,22 @@
+# Flux 2 Max — 16:9 · 2048x1152 · 4 MP
+platform: replicate
+endpoint: black-forest-labs/flux-2-max
+media_type: image
+reference_param: input_images
+parameters:
+  width: 2048
+  height: 1152
+  aspect_ratio: "custom"
+  resolution: "4 MP"
+  output_format: "png"
+  output_quality: 100
+  safety_tolerance: 5
+  # Advanced parameters (uncomment to use)
+  #seed: 0
+pricing:
+  base_cost: 0.04
+  currency: USD
+
+# Prompt modifications (uncomment to use)
+#prompt_prefix: ''
+#prompt_suffix: ''

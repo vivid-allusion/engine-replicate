@@ -1,0 +1,17 @@
+# Nano Banana 2 — 21:9 · 1K
+platform: replicate
+endpoint: google/nano-banana-2
+media_type: image
+parameters:
+  aspect_ratio: "21:9"
+  num_images: 1
+  output_format: "png"
+  resolution: "1K"
+  safety_filter_level: "block_only_high"
+pricing:
+  base_cost: 0.014
+  currency: USD
+
+# Prompt modifications (uncomment to use)
+#prompt_prefix: ''
+#prompt_suffix: ''

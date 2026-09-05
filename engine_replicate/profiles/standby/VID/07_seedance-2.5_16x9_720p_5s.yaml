@@ -1,0 +1,24 @@
+# Seedance 2.5 — 16:9 · 720p · 5s
+platform: replicate
+endpoint: bytedance/seedance-2.5
+media_type: video
+image_url_param: image
+duration_type: seconds
+duration_param_name: duration
+slots: ["last_frame_image", "reference_images", "reference_videos", "reference_audios"]
+parameters:
+  resolution: "720p"
+  aspect_ratio: "16:9"
+  duration: "5"
+  generate_audio: true
+  # Advanced parameters (uncomment to use)
+  #output_format: "mp4"
+  #watermark: false
+  #seed: -1
+pricing:
+  cost_per_second: 0.23
+  currency: USD
+
+# Prompt modifications (uncomment to use)
+#prompt_prefix: ''
+#prompt_suffix: ''

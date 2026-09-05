@@ -1,0 +1,76 @@
+id = "seedance-2.5"
+label = "Seedance 2.5"
+category = "VID"
+platform = "replicate"
+endpoint = "bytedance/seedance-2.5"
+description = "ByteDance's Seedance 2.5: flagship multimodal video generation with native audio and 30-second clips in one pass. Combines text, images, video, and audio references (up to 30 images, 10 videos, 10 audios). Supports first/last-frame control, video editing, extension, and adaptive aspect ratio."
+
+[pricing]
+cost_per_second = 0.23
+currency = "USD"
+note = "$0.23/sec at 720p (non-video input); 480p $0.10/sec. Video-input runs cost more."
+
+[general]
+image_url_param = "image"
+duration_type = "seconds"
+duration_param_name = "duration"
+slots = ["last_frame_image", "reference_images", "reference_videos", "reference_audios"]
+
+[params.aspect_ratio]
+label = "Aspect Ratio"
+type = "select"
+default = "16:9"
+optional = true
+options = [
+  { value = "16:9",     label = "16:9 · Landscape" },
+  { value = "9:16",     label = "9:16 · Portrait · Vertical" },
+  { value = "4:3",      label = "4:3" },
+  { value = "3:4",      label = "3:4" },
+  { value = "1:1",      label = "1:1 · Square" },
+  { value = "21:9",     label = "21:9 · Cinematic" },
+  { value = "adaptive", label = "Adaptive · Model chooses" },
+]
+note = "First/last-frame, editing, and extension modes require 'adaptive'"
+
+[params.duration]
+label = "Duration"
+type = "select"
+default = "5"
+options = [
+  { value = "-1", label = "Auto · Intelligent duration" },
+  { value = "5",  label = "5s · Short" },
+  { value = "10", label = "10s · Medium" },
+  { value = "15", label = "15s · Long" },
+  { value = "30", label = "30s · Maximum" },
+]
+note = "Editing mode requires -1 (auto)"
+
+[params.resolution]
+label = "Resolution"
+type = "select"
+default = "720p"
+options = [
+  { value = "480p", label = "480p · Lower cost" },
+  { value = "720p", label = "720p · Standard" },
+]
+
+[params.generate_audio]
+label = "Generate Native Audio"
+type = "boolean"
+default = true
+description = "Generate synchronized audio including dialogue (use double quotes in prompt), sound effects, and background music"
+
+[params.watermark]
+label = "Watermark"
+type = "boolean"
+default = false
+optional = true
+
+[params.seed]
+label = "Random Seed"
+type = "integer"
+default = -1
+min = -1
+max = 2147483647
+optional = true
+hidden = true

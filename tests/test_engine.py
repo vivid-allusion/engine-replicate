@@ -608,7 +608,7 @@ class TestListStandbyProfiles:
         assert vids
         assert all("VID" in p.parts for p in vids)
         names = {p.name for p in vids}
-        assert "p-video.yaml" in names
+        assert "05_p-video_16x9_720p_5s_24fps.yaml" in names
 
     def test_img_shelf_returns_only_image_yamls(self):
         from engine_replicate import list_standby_profiles

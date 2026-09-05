@@ -1,0 +1,19 @@
+# Seedream 5 Lite — 1:1 · 2K
+platform: replicate
+endpoint: bytedance/seedream-5-lite
+media_type: image
+parameters:
+  aspect_ratio: "1:1"
+  size: "2K"
+  max_images: 1
+  sequential_image_generation: "disabled"
+  output_format: "png"
+  # Advanced parameters (uncomment to use)
+  #return_byteplus_urls: false
+pricing:
+  base_cost: 0.05
+  currency: USD
+
+# Prompt modifications (uncomment to use)
+#prompt_prefix: ''
+#prompt_suffix: ''
