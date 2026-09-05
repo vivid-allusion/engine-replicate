@@ -9,10 +9,10 @@ slots: ["last_frame_image", "reference_images", "reference_videos", "reference_a
 parameters:
   resolution: "720p"
   aspect_ratio: "16:9"
-  duration: "5"
+  duration: 5
+  output_format: "mp4"
   generate_audio: true
   # Advanced parameters (uncomment to use)
-  #output_format: "mp4"
   #watermark: false
   #seed: -1
 pricing:

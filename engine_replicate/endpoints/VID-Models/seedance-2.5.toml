@@ -34,16 +34,11 @@ note = "First/last-frame, editing, and extension modes require 'adaptive'"
 
 [params.duration]
 label = "Duration"
-type = "select"
-default = "5"
-options = [
-  { value = "-1", label = "Auto · Intelligent duration" },
-  { value = "5",  label = "5s · Short" },
-  { value = "10", label = "10s · Medium" },
-  { value = "15", label = "15s · Long" },
-  { value = "30", label = "30s · Maximum" },
-]
-note = "Editing mode requires -1 (auto)"
+type = "integer"
+default = 5
+min = -1
+max = 30
+note = "Seconds. Set to -1 for auto (required for editing mode)"
 
 [params.resolution]
 label = "Resolution"
@@ -52,6 +47,15 @@ default = "720p"
 options = [
   { value = "480p", label = "480p · Lower cost" },
   { value = "720p", label = "720p · Standard" },
+]
+
+[params.output_format]
+label = "Output Format"
+type = "select"
+default = "mp4"
+options = [
+  { value = "mp4", label = "MP4 · Default" },
+  { value = "mov", label = "MOV" },
 ]
 
 [params.generate_audio]
