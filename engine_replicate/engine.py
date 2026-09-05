@@ -36,7 +36,7 @@ class Engine:
 
         import replicate
 
-        client = replicate.Client(api_token=self._resolve_api_key())
+        client = replicate.Client(api_token=self._resolve_api_key(), timeout=600.0)
         endpoint = self._profile["endpoint"]
         params = dict(self._profile.get("parameters", {}))
         media_type = self._profile.get("media_type", "")
