@@ -9,6 +9,9 @@ description = "ByteDance's latest Seedream 5.0 Lite: image generation with built
 base_cost = 0.05
 currency = "USD"
 
+[general]
+image_url_param = "image_input"
+
 [params.size]
 label = "Resolution"
 type = "select"
@@ -21,7 +24,7 @@ options = [
 [params.aspect_ratio]
 label = "Aspect Ratio"
 type = "select"
-default = "16:9"
+default = "match_input_image"
 optional = true
 options = [
   { value = "1:1",   label = "1:1 · Square" },
@@ -61,10 +64,3 @@ options = [
   { value = "png", label = "PNG · Lossless" },
   { value = "jpeg", label = "JPEG" },
 ]
-
-[params.return_byteplus_urls]
-label = "Return BytePlus URLs (24h expiry)"
-type = "boolean"
-default = false
-hidden = true
-description = "Return raw BytePlus-hosted URLs instead of downloading. These bypass face detection when passed as reference images to Seedance 2.0. URLs expire after 24 hours."

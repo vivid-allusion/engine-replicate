@@ -9,6 +9,9 @@ description = "ByteDance's upgraded image model with stronger spatial understand
 base_cost = 0.05
 currency = "USD"
 
+[general]
+image_url_param = "image_input"
+
 [params.size]
 label = "Resolution"
 type = "select"
@@ -23,7 +26,7 @@ note = "1K resolution is not supported in Seedream 4.5"
 [params.aspect_ratio]
 label = "Aspect Ratio"
 type = "select"
-default = "16:9"
+default = "match_input_image"
 optional = true
 options = [
   { value = "1:1",   label = "1:1 · Square" },

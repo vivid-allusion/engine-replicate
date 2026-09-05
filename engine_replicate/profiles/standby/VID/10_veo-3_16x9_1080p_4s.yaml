@@ -7,7 +7,7 @@ duration_type: seconds
 duration_param_name: duration
 parameters:
   aspect_ratio: "16:9"
-  duration: "4"
+  duration: "8"
   resolution: "1080p"
   generate_audio: true
   # Advanced parameters (uncomment to use)

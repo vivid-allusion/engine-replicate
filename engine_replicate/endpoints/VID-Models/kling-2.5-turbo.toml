@@ -13,7 +13,7 @@ currency = "USD"
 image_url_param = "start_image"
 duration_type = "seconds"
 duration_param_name = "duration"
-slots = ["end_image"]
+slots = ["end_image", "image"]
 
 [params.aspect_ratio]
 label = "Aspect Ratio"
@@ -46,8 +46,6 @@ default = ""
 label = "Guidance Scale (deprecated)"
 type = "number"
 default = 0.5
-min = 0.0
-max = 1.0
 optional = true
 hidden = true
 description = "Kept for backwards compatibility — this parameter is no longer used"

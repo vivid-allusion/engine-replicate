@@ -14,7 +14,7 @@ note = "$0.02/sec at 720p, $0.04/sec at 1080p. Draft mode is 4x cheaper ($0.005/
 image_url_param = "image"
 duration_type = "seconds"
 duration_param_name = "duration"
-slots = ["audio"]
+slots = ["audio", "last_frame_image"]
 
 [params.aspect_ratio]
 label = "Aspect Ratio"
@@ -34,21 +34,11 @@ note = "Ignored when an input image is provided"
 
 [params.duration]
 label = "Duration"
-type = "select"
-default = "5"
-options = [
-  { value = "1",  label = "1s" },
-  { value = "2",  label = "2s" },
-  { value = "3",  label = "3s" },
-  { value = "4",  label = "4s" },
-  { value = "5",  label = "5s · Default" },
-  { value = "6",  label = "6s" },
-  { value = "7",  label = "7s" },
-  { value = "8",  label = "8s" },
-  { value = "9",  label = "9s" },
-  { value = "10", label = "10s · Max" },
-]
-note = "Ignored when audio input is provided"
+type = "integer"
+default = 5
+min = 1
+max = 20
+note = "Seconds (1-20). Ignored when audio input is provided"
 
 [params.resolution]
 label = "Resolution"
@@ -88,3 +78,22 @@ min = -1
 max = 2147483647
 optional = true
 hidden = true
+
+[params.no_op]
+label = "Health Check Mode"
+type = "boolean"
+default = false
+hidden = true
+description = "Health check mode - returns status without inference"
+
+[params.save_audio]
+label = "Save Audio"
+type = "boolean"
+default = true
+description = "Save the video with audio"
+
+[params.disable_safety_filter]
+label = "Disable Safety Filter"
+type = "boolean"
+default = true
+description = "Disable safety filter for prompts and input images"

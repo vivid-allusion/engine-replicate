@@ -4,6 +4,7 @@ import urllib.request
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from .datatypes import EngineError, InputFile, OutputFile, ProgressEvent
 
@@ -67,7 +68,7 @@ class Engine:
                 results.append(output)
                 continue
 
-            self._emit(f"{prefix} 📝 Prompt: {prompt}")
+            self._emit(f"{prefix} 📝 Bullet: {item.path.name}")
 
             try:
                 replicate_input = self._build_replicate_input(params, prompt, item, media_type)
@@ -151,7 +152,8 @@ class Engine:
     def _build_replicate_input(
         self, params: dict, prompt: str, item: InputFile, media_type: str
     ) -> dict:
-        replicate_input = dict(params)
+        props = self._input_props()
+        replicate_input = {k: self._coerce_param_value(k, v, props) for k, v in params.items()}
         replicate_input.pop("prompt_prefix", None)
         replicate_input.pop("prompt_suffix", None)
 
@@ -165,7 +167,8 @@ class Engine:
 
         duration = item.metadata.get("duration")
         if duration is not None:
-            replicate_input[self._profile.get("duration_param_name", "duration")] = duration
+            key = str(self._profile.get("duration_param_name", "duration"))
+            replicate_input[key] = self._coerce_param_value(key, duration, props)
 
         return replicate_input
 
@@ -184,9 +187,10 @@ class Engine:
     def _input_props(self) -> dict:
         """Best-effort fetch of the endpoint's Input JSON-schema properties.
 
-        Used to decide whether a media parameter expects a single URL
-        (string) or a list of URLs (array). Cached per Engine instance;
-        returns {} when the schema is unavailable.
+        Used to shape media params (single URL vs list) and scalar params
+        (int vs float vs string) against the model schema. ``$ref``/``allOf``
+        fragments are resolved to concrete type dicts. Cached per Engine
+        instance; returns {} when the schema is unavailable.
         """
         if self._input_props_cache is not None:
             return self._input_props_cache
@@ -197,18 +201,75 @@ class Engine:
             client = replicate.Client(api_token=self._resolve_api_key())
             model = client.models.get(str(self._profile.get("endpoint", "")))
             schema = getattr(model.latest_version, "openapi_schema", None) or {}
-            props = (
+            raw = (
                 schema.get("components", {})
                 .get("schemas", {})
                 .get("Input", {})
                 .get("properties", {})
             ) or {}
+            props = {
+                key: self._resolve_schema_refs(value, schema)
+                for key, value in raw.items()
+                if isinstance(value, dict)
+            }
         except Exception:
             props = {}
         if not isinstance(props, dict):
             props = {}
         self._input_props_cache = props
         return props
+
+    def _resolve_schema_refs(self, node: Any, root: dict) -> Any:
+        """Resolve ``$ref``/``allOf`` fragments into a concrete schema dict."""
+        if not isinstance(node, dict):
+            return node
+        resolved: dict = {}
+        if "$ref" in node and isinstance(node["$ref"], str):
+            target: Any = root
+            for part in node["$ref"].lstrip("#/").split("/"):
+                target = target.get(part) if isinstance(target, dict) else None
+                if target is None:
+                    break
+            if isinstance(target, dict):
+                resolved.update(self._resolve_schema_refs(target, root))
+        resolved.update({k: v for k, v in node.items() if k not in ("$ref", "allOf")})
+        for fragment in node.get("allOf", []):
+            merged = self._resolve_schema_refs(fragment, root)
+            if isinstance(merged, dict):
+                for k, v in merged.items():
+                    resolved.setdefault(k, v)
+        return resolved
+
+    def _coerce_param_value(self, key: str, value: Any, props: dict) -> Any:
+        """Coerce a scalar parameter against the model's schema type.
+
+        Integer-typed params (duration, fps, ...) receive an int when the
+        profile ships a numeric string; number/boolean params coerce
+        likewise. Non-convertible values (e.g. token durations like
+        ``auto``) pass through verbatim, as do all values when the schema
+        is unavailable.
+        """
+        param = props.get(key, {})
+        param_type = param.get("type") if isinstance(param, dict) else None
+        if not isinstance(value, str):
+            return value
+        if param_type == "integer":
+            try:
+                return int(value)
+            except ValueError:
+                return value
+        if param_type == "number":
+            try:
+                return float(value)
+            except ValueError:
+                return value
+        if param_type == "boolean":
+            lowered = value.strip().lower()
+            if lowered in {"true", "yes", "1", "on"}:
+                return True
+            if lowered in {"false", "no", "0", "off"}:
+                return False
+        return value
 
     def _coerce_media_value(self, key: str, urls: list[str]) -> str | list[str]:
         """Shape URLs for a media parameter against the model's schema.

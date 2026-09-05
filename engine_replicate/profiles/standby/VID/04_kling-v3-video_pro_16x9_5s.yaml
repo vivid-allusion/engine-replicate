@@ -9,9 +9,10 @@ slots: ["end_image"]
 parameters:
   mode: "pro"
   aspect_ratio: "16:9"
-  duration: "5"
-  generate_audio: true
+  duration: 5
+  generate_audio: false
   # Advanced parameters (uncomment to use)
+  #multi_prompt: ""
   #negative_prompt: ""
 pricing:
   cost_per_second: 0.35

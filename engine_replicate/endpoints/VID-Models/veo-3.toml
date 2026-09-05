@@ -27,7 +27,7 @@ options = [
 [params.duration]
 label = "Duration"
 type = "select"
-default = "4"
+default = "8"
 options = [
   { value = "4", label = "4s · Short" },
   { value = "6", label = "6s · Medium" },

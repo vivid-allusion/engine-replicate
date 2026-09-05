@@ -10,10 +10,13 @@ base_cost = 0.014
 currency = "USD"
 note = "High-efficiency model — optimized for speed and high-volume use"
 
+[general]
+image_url_param = "image_input"
+
 [params.aspect_ratio]
 label = "Aspect Ratio"
 type = "select"
-default = "16:9"
+default = "match_input_image"
 optional = true
 options = [
   { value = "1:1",   label = "1:1 · Square" },

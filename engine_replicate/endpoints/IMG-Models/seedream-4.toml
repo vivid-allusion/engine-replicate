@@ -9,6 +9,9 @@ description = "ByteDance's image generation model supporting cinematic aesthetic
 base_cost = 0.05
 currency = "USD"
 
+[general]
+image_url_param = "image_input"
+
 [params.size]
 label = "Resolution"
 type = "select"
@@ -23,7 +26,7 @@ options = [
 [params.aspect_ratio]
 label = "Aspect Ratio"
 type = "select"
-default = "16:9"
+default = "match_input_image"
 optional = true
 options = [
   { value = "1:1",   label = "1:1 · Square" },
@@ -69,3 +72,12 @@ type = "boolean"
 default = true
 hidden = true
 description = "Automatically refine the prompt for better generation quality"
+
+[params.sequential_image_generation]
+label = "Sequential Generation"
+type = "select"
+default = "disabled"
+options = [
+  { value = "disabled", label = "Disabled · Single image" },
+  { value = "auto",     label = "Auto · Model decides group generation" },
+]

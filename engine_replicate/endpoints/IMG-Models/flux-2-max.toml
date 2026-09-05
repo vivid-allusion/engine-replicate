@@ -9,6 +9,9 @@ description = "The highest fidelity image model from Black Forest Labs. Supports
 base_cost = 0.04
 currency = "USD"
 
+[general]
+image_url_param = "input_images"
+
 [params.aspect_ratio]
 label = "Aspect Ratio"
 type = "select"

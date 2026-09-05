@@ -5,11 +5,14 @@ media_type: video
 image_url_param: image
 duration_type: seconds
 duration_param_name: duration
+slots: ["audio"]
 parameters:
   resolution: "720p"
   duration: "5"
   # Advanced parameters (uncomment to use)
-  #generate_audio: false
+  #negative_prompt: ""
+  #enable_prompt_expansion: true
+  #seed: -1
 pricing:
   cost_per_second: 0.15
   currency: USD

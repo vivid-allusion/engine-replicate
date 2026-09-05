@@ -5,7 +5,7 @@ media_type: video
 image_url_param: start_image
 duration_type: seconds
 duration_param_name: duration
-slots: ["end_image"]
+slots: ["end_image", "image"]
 parameters:
   aspect_ratio: "16:9"
   duration: "5"

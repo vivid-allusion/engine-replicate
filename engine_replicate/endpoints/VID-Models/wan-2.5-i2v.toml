@@ -13,6 +13,7 @@ currency = "USD"
 image_url_param = "image"
 duration_type = "seconds"
 duration_param_name = "duration"
+slots = ["audio"]
 
 [params.resolution]
 label = "Resolution"
@@ -54,10 +55,3 @@ min = -1
 max = 2147483647
 optional = true
 hidden = true
-
-[params.generate_audio]
-label = "Generate Audio (via prompt)"
-type = "boolean"
-default = false
-hidden = true
-description = "Wan 2.5 can generate synced audio from the prompt. Use descriptive audio cues in your prompt."

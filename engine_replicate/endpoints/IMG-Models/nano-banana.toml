@@ -10,10 +10,13 @@ base_cost = 0.039
 currency = "USD"
 note = "Superseded by Nano Banana 2. Pricing varies by aspect ratio."
 
+[general]
+image_url_param = "image_input"
+
 [params.aspect_ratio]
 label = "Aspect Ratio"
 type = "select"
-default = "16:9"
+default = "match_input_image"
 optional = true
 options = [
   { value = "1:1",   label = "1:1 · Square" },
@@ -32,7 +35,7 @@ options = [
 [params.output_format]
 label = "Output Format"
 type = "select"
-default = "png"
+default = "jpg"
 options = [
   { value = "png", label = "PNG" },
   { value = "jpg", label = "JPEG" },

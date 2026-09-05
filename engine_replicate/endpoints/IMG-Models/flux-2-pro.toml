@@ -9,6 +9,9 @@ description = "Black Forest Labs' Flux 2 Pro: high-quality image generation and 
 base_cost = 0.06
 currency = "USD"
 
+[general]
+image_url_param = "input_images"
+
 [params.aspect_ratio]
 label = "Aspect Ratio"
 type = "select"
@@ -23,7 +26,6 @@ options = [
   { value = "5:4",   label = "5:4 · Landscape" },
   { value = "9:16",  label = "9:16 · Vertical" },
   { value = "16:9",  label = "16:9 · Landscape · Standard" },
-  { value = "21:9",  label = "21:9 · Ultrawide · Cinematic" },
   { value = "match_input_image", label = "Match Input Image" },
   { value = "custom", label = "Custom · Set width/height" },
 ]

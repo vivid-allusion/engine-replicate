@@ -13,7 +13,6 @@ currency = "USD"
 image_url_param = "start_image"
 duration_type = "seconds"
 duration_param_name = "duration"
-slots = ["end_image"]
 
 [params.aspect_ratio]
 label = "Aspect Ratio"

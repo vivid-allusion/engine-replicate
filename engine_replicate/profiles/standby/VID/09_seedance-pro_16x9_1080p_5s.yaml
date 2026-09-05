@@ -5,13 +5,13 @@ media_type: video
 image_url_param: image
 duration_type: seconds
 duration_param_name: duration
-slots: ["reference_images", "reference_videos", "reference_audios"]
+slots: ["last_frame_image"]
 parameters:
   resolution: "1080p"
   aspect_ratio: "16:9"
-  duration: "5"
+  duration: 5
   # Advanced parameters (uncomment to use)
-  #fps: 24
+  #fps: "24"
   #camera_fixed: false
   #seed: -1
 pricing:

@@ -9,6 +9,9 @@ description = "Alibaba's Wan 2.7 Image model: generate and edit images with thin
 base_cost = 0.005
 currency = "USD"
 
+[general]
+image_url_param = "images"
+
 [params.size]
 label = "Resolution"
 type = "select"
@@ -34,13 +37,13 @@ label = "Number of Images"
 type = "integer"
 default = 1
 min = 1
-max = 12
+max = 4
 
 [params.image_set_mode]
 label = "Image Set Mode"
 type = "boolean"
 default = false
-description = "Generate a coherent set of related images from a single prompt (e.g. character across seasons). When enabled, num_outputs can be up to 12."
+description = "Generate a coherent set of related images from a single prompt (e.g. character across seasons)."
 
 [params.thinking_mode]
 label = "Thinking Mode (Enhanced Reasoning)"

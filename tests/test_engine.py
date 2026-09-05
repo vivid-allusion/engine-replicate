@@ -374,7 +374,7 @@ class TestStreamSaveExtension:
 
 
 class TestPromptLogging:
-    def test_wrapped_prompt_is_emitted_to_progress(self, tmp_path):
+    def test_bullet_filename_is_emitted_to_progress(self, tmp_path):
         with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
             mock_replicate = MagicMock()
             mock_client = MagicMock()
@@ -394,8 +394,9 @@ class TestPromptLogging:
                 )
                 engine.run([InputFile(path=Path("b.md"), prompt="hello")])
 
-            prompts = [c.message for c in progress_calls if "Prompt:" in c.message]
-            assert prompts == ["[1/1] 📝 Prompt: PREFIX: hello :SUFFIX"]
+            bullets = [c.message for c in progress_calls if "Bullet:" in c.message]
+            assert bullets == ["[1/1] 📝 Bullet: b.md"]
+            assert not any("Prompt:" in c.message for c in progress_calls)
 
     def test_empty_prompt_is_not_logged(self, tmp_path):
         with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
@@ -475,7 +476,11 @@ class TestBuildReplicateInput:
 
     def _build(self, profile, item, params=None, schema=None):
         engine = Engine(profile, "/tmp/out")
-        engine._input_props_cache = schema
+        if schema is not None:
+            engine._input_props_cache = {
+                key: engine._resolve_schema_refs(value, schema)
+                for key, value in schema.items()
+            }
         return engine._build_replicate_input(params or {}, item.prompt, item, "video")
 
     SEEDANCE_SCHEMA = {
@@ -598,6 +603,84 @@ class TestBuildReplicateInput:
         payload = self._build(profile, item, params={"aspect_ratio": "16:9"})
         assert "duration" not in payload
         assert payload["aspect_ratio"] == "16:9"
+
+    PVIDEO_SCHEMA = {
+        "aspect_ratio": {"type": "string"},
+        "duration": {"type": "integer"},
+        "resolution": {"type": "string"},
+        "fps": {"type": "integer"},
+        "draft": {"type": "boolean"},
+    }
+
+    def test_numeric_string_params_coerced_against_schema(self):
+        profile = {"endpoint": "prunaai/p-video"}
+        item = InputFile(path=Path("b.md"), prompt="p")
+        params = {
+            "aspect_ratio": "16:9",
+            "duration": "5",
+            "resolution": "720p",
+            "fps": "24",
+            "draft": False,
+            "prompt_upsampling": True,
+        }
+        payload = self._build(profile, item, params=params, schema=self.PVIDEO_SCHEMA)
+        assert payload["duration"] == 5
+        assert payload["fps"] == 24
+        assert payload["aspect_ratio"] == "16:9"
+        assert payload["resolution"] == "720p"
+        assert payload["draft"] is False
+        assert payload["prompt_upsampling"] is True
+
+    def test_quoted_boolean_param_coerced_against_schema(self):
+        profile = {"endpoint": "prunaai/p-video"}
+        item = InputFile(path=Path("b.md"), prompt="p")
+        payload = self._build(
+            profile, item, params={"draft": "false"}, schema=self.PVIDEO_SCHEMA
+        )
+        assert payload["draft"] is False
+
+    def test_non_numeric_string_on_integer_param_passes_verbatim(self):
+        profile = {"endpoint": "prunaai/p-video"}
+        item = InputFile(path=Path("b.md"), prompt="p")
+        payload = self._build(
+            profile, item, params={"duration": "auto"}, schema=self.PVIDEO_SCHEMA
+        )
+        assert payload["duration"] == "auto"
+
+    def test_duration_override_coerced_against_schema(self):
+        profile = {"endpoint": "prunaai/p-video", "duration_param_name": "duration"}
+        item = InputFile(path=Path("b.md"), prompt="p", metadata={"duration": "10"})
+        payload = self._build(profile, item, schema=self.PVIDEO_SCHEMA)
+        assert payload["duration"] == 10
+
+    def test_missing_schema_passes_params_verbatim(self):
+        profile = {"endpoint": "test/model"}
+        item = InputFile(path=Path("b.md"), prompt="p")
+        payload = self._build(profile, item, params={"duration": "5"}, schema={})
+        assert payload["duration"] == "5"
+
+    FPS_REF_SCHEMA = {
+        "components": {"schemas": {"fps": {"type": "integer", "enum": [24, 48]}}},
+        "duration": {"type": "integer"},
+        "fps": {"allOf": [{"$ref": "#/components/schemas/fps"}], "default": 24},
+    }
+
+    def test_allof_ref_param_coerced(self):
+        profile = {"endpoint": "prunaai/p-video"}
+        item = InputFile(path=Path("b.md"), prompt="p")
+        payload = self._build(
+            profile, item, params={"fps": "24", "duration": "5"}, schema=self.FPS_REF_SCHEMA
+        )
+        assert payload["fps"] == 24
+        assert payload["duration"] == 5
+
+    def test_resolve_schema_refs_merges_ref_and_own_keys(self):
+        engine = Engine({"endpoint": "test/model"}, "/tmp/out")
+        resolved = engine._resolve_schema_refs(
+            {"allOf": [{"$ref": "#/components/schemas/fps"}], "default": 24},
+            self.FPS_REF_SCHEMA,
+        )
+        assert resolved == {"type": "integer", "enum": [24, 48], "default": 24}
 
 
 class TestListStandbyProfiles:
