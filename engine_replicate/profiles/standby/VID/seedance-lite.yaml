@@ -1,0 +1,23 @@
+# Seedance Lite
+platform: replicate
+endpoint: bytedance/seedance-1-lite
+media_type: video
+image_url_param: image
+duration_type: seconds
+duration_param_name: duration
+slots: ["reference_images", "reference_videos", "reference_audios"]
+parameters:
+  resolution: "720p"
+  aspect_ratio: "16:9"
+  duration: "5"
+  # Advanced parameters (uncomment to use)
+  #fps: 24
+  #camera_fixed: false
+  #seed: -1
+pricing:
+  cost_per_second: 0.036
+  currency: USD
+
+# Prompt modifications (uncomment to use)
+#prompt_prefix: ''
+#prompt_suffix: ''

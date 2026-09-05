@@ -33,8 +33,11 @@ discover this Engine, load it via `engine_loader.py`, and call
   pulling in the **Replicate** SDK transitively.
 - **`endpoints/`** TOMLs are the canonical model catalog. One file per model,
   defining valid parameter ranges.
-- **`profiles/standby/`** contains publishable YAML profiles. When installed,
-  these are seeded into Vehicle repos' `USER-FILES/02.STANDBY/`.
+- **`profiles/standby/`** contains publishable YAML profiles, organized by
+  media category (`IMG/` and `VID/`) mirroring `endpoints/`. When installed,
+  these are seeded into Vehicle repos' `USER-FILES/02.STANDBY/`, filtered by
+  the loading Vehicle's declared media type (Frame Composer → IMG, Motion
+  Conductor → VID).
 
 ### Provider details
 
@@ -60,9 +63,9 @@ Vehicles find this Engine via `engine_loader.py`:
 | `engine_replicate/engine.py` | Engine implementation — all SDK calls live here |
 | `engine_replicate/datatypes.py` | InputFile, OutputFile, ProgressEvent, EngineError |
 | `engine_replicate/metadata.py` | Zero-dependency identity constants (studiolot reads this) |
-| `engine_replicate/__init__.py` | Re-exports Engine + all datatypes |
+| `engine_replicate/__init__.py` | Re-exports Engine + all datatypes + `list_standby_profiles(media_type)` shelf selector |
 | `engine_replicate/endpoints/` | TOML model catalog (IMG/VID/TXT/Vision) |
-| `engine_replicate/profiles/standby/` | Publishable YAML profiles |
+| `engine_replicate/profiles/standby/` | Publishable YAML profiles by category (IMG/VID) |
 | `tests/test_engine.py` | Unit tests |
 | `pyproject.toml` | Package metadata, pip-installable |
 | `requirements.txt` | Provider SDK + dependencies |
@@ -73,6 +76,21 @@ Full contract: `~/Nextcloud/00-DEVELOPMENT/MISC_DEV_TOOLS/studiolot/docs/archite
 
 ### Session History
 
+- 2026-09-05 — Vehicle-aware standby shelves (MC/FC seeding split)
+  - `profiles/standby/` reorganized into `IMG/` (30 existing image YAMLs,
+    moved) and `VID/` (11 new video YAMLs authored from `endpoints/VID-Models/`
+    defaults: kling-2.5-turbo-pro, kling-v2.6, kling-v3-video, seedance-2.0,
+    seedance-lite, seedance-pro, wan-2.5-i2v, p-video, veo-3, veo-3.1,
+    grok-imagine-video).
+  - `list_standby_profiles(media_type=None)` selects a shelf (`IMG`/`VID`,
+    case-insensitive; `None` → every shelf, legacy behavior). Vehicles declare
+    their media type (MC → VID, FC → IMG) through the vendored
+    `copy_standby_profiles(media_type=...)`; engines without the parameter
+    fall back to the no-arg call.
+  - Video YAML shape: `platform`, `endpoint`, `media_type: video`, top-level
+    `image_url_param`/`duration_type`/`duration_param_name`/`slots`,
+    `parameters` carrying TOML defaults, `pricing.cost_per_second`.
+  - 4 new shelf-selector tests; 53 green.
 - 2026-09-05 — Live-run 422 fix: `_build_replicate_input` now shapes media
   values against the model's openapi schema — string params (start_image,
   end_image, image, last_frame) get a single URL, array params

@@ -1,0 +1,19 @@
+# Wan 2.5 I2V
+platform: replicate
+endpoint: wan-video/wan-2.5-i2v
+media_type: video
+image_url_param: image
+duration_type: seconds
+duration_param_name: duration
+parameters:
+  resolution: "720p"
+  duration: "5"
+  # Advanced parameters (uncomment to use)
+  #generate_audio: false
+pricing:
+  cost_per_second: 0.15
+  currency: USD
+
+# Prompt modifications (uncomment to use)
+#prompt_prefix: ''
+#prompt_suffix: ''

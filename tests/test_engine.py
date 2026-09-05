@@ -598,3 +598,34 @@ class TestBuildReplicateInput:
         payload = self._build(profile, item, params={"aspect_ratio": "16:9"})
         assert "duration" not in payload
         assert payload["aspect_ratio"] == "16:9"
+
+
+class TestListStandbyProfiles:
+    def test_vid_shelf_returns_only_video_yamls(self):
+        from engine_replicate import list_standby_profiles
+
+        vids = list_standby_profiles("VID")
+        assert vids
+        assert all("VID" in p.parts for p in vids)
+        names = {p.name for p in vids}
+        assert "p-video.yaml" in names
+
+    def test_img_shelf_returns_only_image_yamls(self):
+        from engine_replicate import list_standby_profiles
+
+        imgs = list_standby_profiles("IMG")
+        assert imgs
+        assert all("IMG" in p.parts for p in imgs)
+
+    def test_no_filter_returns_every_shelf(self):
+        from engine_replicate import list_standby_profiles
+
+        all_profiles = list_standby_profiles()
+        vids = list_standby_profiles("VID")
+        imgs = list_standby_profiles("IMG")
+        assert len(all_profiles) == len(vids) + len(imgs)
+
+    def test_unknown_media_type_returns_empty(self):
+        from engine_replicate import list_standby_profiles
+
+        assert list_standby_profiles("TXT") == []
