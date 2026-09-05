@@ -28,6 +28,7 @@ class Engine:
         self._on_progress = on_progress
         self._prefix = profile.get("prompt_prefix", "")
         self._suffix = profile.get("prompt_suffix", "")
+        self._input_props_cache: dict | None = None
 
     def run(self, inputs: list[InputFile]) -> list[OutputFile]:
         self._validate_preflight()
@@ -155,11 +156,12 @@ class Engine:
         replicate_input.pop("prompt_suffix", None)
 
         replicate_input["prompt"] = prompt
+        ref_key = self._reference_key()
         if item.reference_urls:
-            replicate_input[self._reference_key()] = item.reference_urls
+            replicate_input[ref_key] = self._coerce_media_value(ref_key, item.reference_urls)
         for slot, urls in item.references.items():
             if urls or slot in self._required_slots():
-                replicate_input[slot] = urls
+                replicate_input[slot] = self._coerce_media_value(slot, urls)
 
         duration = item.metadata.get("duration")
         if duration is not None:
@@ -178,6 +180,53 @@ class Engine:
 
     def _required_slots(self) -> set[str]:
         return set(self._profile.get("required_slots") or [])
+
+    def _input_props(self) -> dict:
+        """Best-effort fetch of the endpoint's Input JSON-schema properties.
+
+        Used to decide whether a media parameter expects a single URL
+        (string) or a list of URLs (array). Cached per Engine instance;
+        returns {} when the schema is unavailable.
+        """
+        if self._input_props_cache is not None:
+            return self._input_props_cache
+        props: dict = {}
+        try:
+            import replicate
+
+            client = replicate.Client(api_token=self._resolve_api_key())
+            model = client.models.get(str(self._profile.get("endpoint", "")))
+            schema = getattr(model.latest_version, "openapi_schema", None) or {}
+            props = (
+                schema.get("components", {})
+                .get("schemas", {})
+                .get("Input", {})
+                .get("properties", {})
+            ) or {}
+        except Exception:
+            props = {}
+        if not isinstance(props, dict):
+            props = {}
+        self._input_props_cache = props
+        return props
+
+    def _coerce_media_value(self, key: str, urls: list[str]) -> str | list[str]:
+        """Shape URLs for a media parameter against the model's schema.
+
+        String-typed params (start_image, end_image, image, ...) receive a
+        single URL; array-typed params (reference_images, ...) receive the
+        full list. When the schema is unknown, a single URL degrades to a
+        string and multiple URLs stay a list.
+        """
+        if not urls:
+            return []
+        param = self._input_props().get(key, {})
+        param_type = param.get("type") if isinstance(param, dict) else None
+        if param_type == "array":
+            return urls
+        if param_type == "string":
+            return urls[0]
+        return urls[0] if len(urls) == 1 else urls
 
     def _save_results(
         self,

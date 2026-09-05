@@ -73,4 +73,11 @@ Full contract: `~/Nextcloud/00-DEVELOPMENT/MISC_DEV_TOOLS/studiolot/docs/archite
 
 ### Session History
 
+- 2026-09-05 — Live-run 422 fix: `_build_replicate_input` now shapes media
+  values against the model's openapi schema — string params (start_image,
+  end_image, image, last_frame) get a single URL, array params
+  (reference_*) keep the list. `_input_props()` fetches the schema once per
+  run via an authenticated `replicate.Client` (unauthenticated `models.get`
+  401s); unknown schemas degrade by URL count. Tests updated to live-schema
+  shapes; 52 green, black `--line-length 100` clean.
 - 2026-08-05 — Created AGENTS.md, .env.example, .gitignore

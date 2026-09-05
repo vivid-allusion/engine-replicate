@@ -316,7 +316,7 @@ class TestEngineRun:
                         ]
                     )
                     replicate_input = mock_client.run.call_args[1]["input"]
-                    assert replicate_input["start_image"] == ["https://ref.com/img.jpg"]
+                    assert replicate_input["start_image"] == "https://ref.com/img.jpg"
                     assert replicate_input["duration"] == 5
                     assert replicate_input["fps"] == 24
 
@@ -473,9 +473,17 @@ class TestImports:
 class TestBuildReplicateInput:
     """Slot routing + per-bullet duration override for video payloads."""
 
-    def _build(self, profile, item, params=None):
+    def _build(self, profile, item, params=None, schema=None):
         engine = Engine(profile, "/tmp/out")
+        engine._input_props_cache = schema
         return engine._build_replicate_input(params or {}, item.prompt, item, "video")
+
+    SEEDANCE_SCHEMA = {
+        "image": {"type": "string"},
+        "reference_images": {"type": "array"},
+        "reference_videos": {"type": "array"},
+        "reference_audios": {"type": "array"},
+    }
 
     def test_seedance_shaped_payload_dict(self):
         profile = {
@@ -490,10 +498,10 @@ class TestBuildReplicateInput:
             references={"reference_images": ["https://ref.com/img.jpg"]},
             metadata={"duration": "auto"},
         )
-        payload = self._build(profile, item)
+        payload = self._build(profile, item, schema=self.SEEDANCE_SCHEMA)
         assert payload == {
             "prompt": "a cinematic pan",
-            "image": ["https://ref.com/start.jpg"],
+            "image": "https://ref.com/start.jpg",
             "reference_images": ["https://ref.com/img.jpg"],
             "duration": "auto",
         }
@@ -505,20 +513,20 @@ class TestBuildReplicateInput:
         }
         item = InputFile(path=Path("b.md"), prompt="p", reference_urls=["https://x.com/a.jpg"])
         payload = self._build(profile, item)
-        assert payload["start_image"] == ["https://x.com/a.jpg"]
+        assert payload["start_image"] == "https://x.com/a.jpg"
         assert "images" not in payload
 
     def test_primary_key_falls_back_to_reference_param(self):
         profile = {"reference_param": "images"}
         item = InputFile(path=Path("b.md"), prompt="p", reference_urls=["https://x.com/a.jpg"])
         payload = self._build(profile, item)
-        assert payload["images"] == ["https://x.com/a.jpg"]
+        assert payload["images"] == "https://x.com/a.jpg"
 
     def test_primary_key_falls_back_to_image_input(self):
         profile = {"endpoint": "test/model"}
         item = InputFile(path=Path("b.md"), prompt="p", reference_urls=["https://x.com/a.jpg"])
         payload = self._build(profile, item)
-        assert payload["image_input"] == ["https://x.com/a.jpg"]
+        assert payload["image_input"] == "https://x.com/a.jpg"
 
     def test_named_slots_route_to_own_keys(self):
         profile = {"endpoint": "test/model"}
@@ -531,8 +539,34 @@ class TestBuildReplicateInput:
             },
         )
         payload = self._build(profile, item)
+        assert payload["reference_images"] == "https://x.com/i.jpg"
+        assert payload["reference_videos"] == "https://x.com/v.mp4"
+
+    def test_schema_string_param_gets_single_url(self):
+        profile = {"endpoint": "test/model"}
+        item = InputFile(path=Path("b.md"), prompt="p", reference_urls=["https://x.com/a.jpg"])
+        payload = self._build(profile, item, schema={"image_input": {"type": "string"}})
+        assert payload["image_input"] == "https://x.com/a.jpg"
+
+    def test_schema_array_param_keeps_list_with_one_url(self):
+        profile = {"endpoint": "test/model"}
+        item = InputFile(
+            path=Path("b.md"),
+            prompt="p",
+            references={"reference_images": ["https://x.com/i.jpg"]},
+        )
+        payload = self._build(profile, item, schema={"reference_images": {"type": "array"}})
         assert payload["reference_images"] == ["https://x.com/i.jpg"]
-        assert payload["reference_videos"] == ["https://x.com/v.mp4"]
+
+    def test_multiple_urls_fallback_keeps_list(self):
+        profile = {"endpoint": "test/model"}
+        item = InputFile(
+            path=Path("b.md"),
+            prompt="p",
+            reference_urls=["https://x.com/a.jpg", "https://x.com/b.jpg"],
+        )
+        payload = self._build(profile, item)
+        assert payload["image_input"] == ["https://x.com/a.jpg", "https://x.com/b.jpg"]
 
     def test_empty_named_list_omitted_by_default(self):
         profile = {"endpoint": "test/model"}
