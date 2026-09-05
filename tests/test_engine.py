@@ -593,6 +593,16 @@ class TestBuildReplicateInput:
         payload = self._build(profile, item)
         assert payload["image_input"] == ["https://x.com/a.jpg", "https://x.com/b.jpg"]
 
+    def test_multiple_urls_on_string_param_raises_loudly(self):
+        profile = {"endpoint": "test/model"}
+        item = InputFile(
+            path=Path("b.md"),
+            prompt="p",
+            reference_urls=["https://x.com/a.jpg", "https://x.com/b.jpg"],
+        )
+        with pytest.raises(EngineError, match="single media URL"):
+            self._build(profile, item, schema={"image_input": {"type": "string"}})
+
     def test_empty_named_list_omitted_by_default(self):
         profile = {"endpoint": "test/model"}
         item = InputFile(path=Path("b.md"), prompt="p", references={"reference_images": []})

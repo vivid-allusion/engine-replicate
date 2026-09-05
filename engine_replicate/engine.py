@@ -285,6 +285,11 @@ class Engine:
         single URL; array-typed params (reference_images, ...) receive the
         full list. When the schema is unknown, a single URL degrades to a
         string and multiple URLs stay a list.
+
+        Raises:
+            EngineError: multiple URLs routed to a string-typed param — the
+                provider can only accept one, so the extra media must never
+                be silently dropped.
         """
         if not urls:
             return []
@@ -293,6 +298,11 @@ class Engine:
         if param_type == "array":
             return urls
         if param_type == "string":
+            if len(urls) > 1:
+                raise EngineError(
+                    f"Param '{key}' accepts a single media URL but {len(urls)} "
+                    f"were provided — fix the bullet: {urls}"
+                )
             return urls[0]
         return urls[0] if len(urls) == 1 else urls
 
