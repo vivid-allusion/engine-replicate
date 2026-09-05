@@ -453,6 +453,26 @@ class TestExpectedPath:
         assert results[0].expected_path is not None
         assert results[0].expected_path.stem.endswith("-b-0")
 
+    def test_error_event_carries_api_payload(self, tmp_path):
+        with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
+            mock_replicate = MagicMock()
+            mock_client = MagicMock()
+            mock_client.run.side_effect = RuntimeError("API timeout")
+            mock_replicate.Client.return_value = mock_client
+            progress_calls = []
+            with patch.dict("sys.modules", {"replicate": mock_replicate}):
+                engine = Engine(
+                    {"endpoint": "test/model", "media_type": "video"},
+                    tmp_path,
+                    on_progress=progress_calls.append,
+                )
+                engine.run([InputFile(path=Path("b.md"), prompt="test")])
+
+        errors = [c for c in progress_calls if c.level == "error"]
+        assert errors
+        assert errors[0].api_payload is not None
+        assert errors[0].api_payload["prompt"] == "test"
+
 
 class TestImports:
     def test_init_exports_all_names(self):

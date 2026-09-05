@@ -120,6 +120,11 @@ Full contract: `~/Nextcloud/00-DEVELOPMENT/MISC_DEV_TOOLS/studiolot/docs/archite
 
 ### Session History
 
+- 2026-09-05 — Error events carry the API payload
+  - `Engine.run()` declares `replicate_input` before the try block and
+    attaches it to error progress events (`api_payload=`), so a failed API
+    call reports the exact payload that was rejected — vehicles log it into
+    their per-file run logs. 79 green.
 - 2026-09-05 — TOML Catalog Swept to Mirror Live Schemas (21/21 clean)
   - Policy (see NON-NEGOTIABLE section above): endpoint TOMLs must declare
     every server-side input, declare nothing that does not exist server-side,

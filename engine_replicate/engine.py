@@ -70,6 +70,7 @@ class Engine:
 
             self._emit(f"{prefix} 📝 Bullet: {item.path.name}")
 
+            replicate_input: dict | None = None
             try:
                 replicate_input = self._build_replicate_input(params, prompt, item, media_type)
                 raw_output = client.run(endpoint, input=replicate_input)
@@ -109,7 +110,13 @@ class Engine:
                     continue
 
             except Exception as exc:
-                self._emit(f"{prefix} Error: {exc}", level="error", current=current, total=total)
+                self._emit(
+                    f"{prefix} Error: {exc}",
+                    level="error",
+                    current=current,
+                    total=total,
+                    api_payload=replicate_input,
+                )
                 output = OutputFile(
                     source_path=item.path,
                     status="error",
