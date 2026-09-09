@@ -63,7 +63,7 @@ class Engine:
             if idx > 0 and delay > 0:
                 time.sleep(delay)
 
-            self._emit(f"{prefix} 📡 Calling Replicate API...")
+            self._emit(f"{prefix} 📡 Calling Replicate API...", current=current, total=total)
             prompt = f"{self._prefix}{item.prompt}{self._suffix}".strip()
             if not prompt:
                 output = OutputFile(
@@ -76,7 +76,7 @@ class Engine:
                 results.append(output)
                 continue
 
-            self._emit(f"{prefix} 📝 Bullet: {item.path.name}")
+            self._emit(f"{prefix} 📝 Bullet: {item.path.name}", current=current, total=total)
 
             replicate_input: dict | None = None
             try:
@@ -86,8 +86,8 @@ class Engine:
                 raw_output = self._request_with_retry(
                     client, endpoint, replicate_input, prefix
                 )
-                self._emit(f"{prefix} ✅ Response received")
-                self._emit(f"{prefix} 📦 Payload: {replicate_input}")
+                self._emit(f"{prefix} ✅ Response received", current=current, total=total)
+                self._emit(f"{prefix} 📦 Payload: {replicate_input}", current=current, total=total)
 
                 saved = self._save_results(
                     raw_output,
@@ -453,11 +453,34 @@ class Engine:
         saved = []
         for i, item in enumerate(raw_output):
             if isinstance(item, str):
-                self._emit(f"{prefix} ⬇️  Downloading...")
+                self._emit(
+                    f"{prefix} ⬇️  Downloading... 0%",
+                    current=current,
+                    total=total,
+                    percent=0,
+                )
+                last_percent = 0
+
+                def reporthook(blocks: int, block_size: int, total_size: int) -> None:
+                    nonlocal last_percent
+                    if total_size <= 0:
+                        return
+                    percent = min(100, blocks * block_size * 100 // total_size)
+                    percent = 100 if percent == 100 else percent // 10 * 10
+                    if percent <= last_percent:
+                        return
+                    last_percent = percent
+                    self._emit(
+                        f"{prefix} ⬇️  Downloading... {percent}%",
+                        current=current,
+                        total=total,
+                        percent=percent,
+                    )
+
                 ext = self._infer_extension(item, media_type)
                 suffix = "" if len(raw_output) == 1 else f"_{i}"
                 dest = dest_dir / f"{ts}-{stem}-{idx}{suffix}{ext}"
-                urllib.request.urlretrieve(item, dest)
+                urllib.request.urlretrieve(item, dest, reporthook=reporthook)
                 self._emit(
                     f"{prefix} 💾 Saved: {dest.name}",
                     current=current,
@@ -467,7 +490,7 @@ class Engine:
                 )
                 saved.append(dest)
             elif hasattr(item, "read"):
-                self._emit(f"{prefix} ⬇️  Saving file stream...")
+                self._emit(f"{prefix} ⬇️  Saving file stream...", current=current, total=total)
                 data = item.read()
                 ext = self._sniff_extension(data, media_type)
                 suffix = "" if len(raw_output) == 1 else f"_{i}"
@@ -531,6 +554,7 @@ class Engine:
         total: int = 0,
         saved_path: Path | None = None,
         api_payload: dict | None = None,
+        percent: int | None = None,
     ):
         if self._on_progress:
             self._on_progress(
@@ -541,5 +565,6 @@ class Engine:
                     total=total,
                     saved_path=saved_path,
                     api_payload=api_payload,
+                    percent=percent,
                 )
             )
