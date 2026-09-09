@@ -1,5 +1,7 @@
 import importlib
 import os
+import random
+import time
 import urllib.request
 from collections.abc import Callable
 from datetime import datetime
@@ -55,6 +57,10 @@ class Engine:
             ext = self._default_extension(media_type)
             expected = dest_dir / f"{ts}-{stem}-{idx}{ext}"
 
+            delay = float(self._profile.get("delay_between_requests", 0.0))
+            if idx > 0 and delay > 0:
+                time.sleep(delay)
+
             self._emit(f"{prefix} 📡 Calling Replicate API...")
             prompt = f"{self._prefix}{item.prompt}{self._suffix}".strip()
             if not prompt:
@@ -72,8 +78,12 @@ class Engine:
 
             replicate_input: dict | None = None
             try:
-                replicate_input = self._build_replicate_input(params, prompt, item, media_type)
-                raw_output = client.run(endpoint, input=replicate_input)
+                replicate_input = self._build_replicate_input(
+                    params, prompt, item, media_type
+                )
+                raw_output = self._request_with_retry(
+                    client, endpoint, replicate_input, prefix
+                )
                 self._emit(f"{prefix} ✅ Response received")
                 self._emit(f"{prefix} 📦 Payload: {replicate_input}")
 
@@ -155,6 +165,34 @@ class Engine:
         if output_format and all(c.isalnum() for c in output_format):
             return f".{output_format}"
         return ".mp4" if media_type == "video" else ".png"
+
+    def _request_with_retry(
+        self, client, endpoint: str, replicate_input: dict, prefix: str
+    ):
+        max_retries = int(self._profile.get("retry_on_429", 4))
+        base_delay = float(self._profile.get("retry_base_delay", 2.0))
+        last_exc = None
+        for attempt in range(max_retries + 1):
+            try:
+                return client.run(endpoint, input=replicate_input)
+            except Exception as exc:
+                if not self._is_rate_limited(exc) or attempt >= max_retries:
+                    raise
+                last_exc = exc
+                sleep = base_delay * (2 ** attempt) + random.uniform(0, 1)
+                self._emit(
+                    f"{prefix} ⏳ 429 rate limit, retry {attempt + 1}/{max_retries} in {sleep:.1f}s"
+                )
+                time.sleep(sleep)
+        raise last_exc
+
+    @staticmethod
+    def _is_rate_limited(exc: Exception) -> bool:
+        status = getattr(exc, "status", None)
+        if status == 429:
+            return True
+        detail = str(getattr(exc, "detail", "")).lower()
+        return "throttl" in detail or "rate limit" in detail
 
     def _build_replicate_input(
         self, params: dict, prompt: str, item: InputFile, media_type: str
