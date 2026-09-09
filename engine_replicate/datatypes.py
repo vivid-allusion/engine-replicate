@@ -31,6 +31,7 @@ class ProgressEvent:
     total: int = 0
     saved_path: Path | None = None
     api_payload: dict | None = None
+    percent: int | None = None
 
 
 class EngineError(Exception):

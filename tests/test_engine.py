@@ -137,16 +137,40 @@ class TestEngineRun:
             mock_replicate.Client.return_value = mock_client
 
             progress_calls = []
-            with patch.dict("sys.modules", {"replicate": mock_replicate}):
-                engine = Engine(
-                    {"endpoint": "test/model", "media_type": "image"},
-                    tmp_path,
-                    on_progress=progress_calls.append,
-                )
-                engine.run([InputFile(path=Path("b.md"), prompt="test")])
 
-            assert len(progress_calls) >= 1
-            assert any("Calling Replicate API" in c.message for c in progress_calls)
+            def show_progress(event):
+                print(f"[progress] {event.message}")
+                progress_calls.append(event)
+
+            def fake_download(_url, _dest, reporthook=None):
+                assert reporthook is not None
+                reporthook(0, 0, 100)
+                reporthook(1, 50, 100)
+                reporthook(2, 50, 100)
+                return None, None
+
+            with patch.dict("sys.modules", {"replicate": mock_replicate}):
+                with patch("urllib.request.urlretrieve", side_effect=fake_download):
+                    engine = Engine(
+                        {"endpoint": "test/model", "media_type": "image"},
+                        tmp_path,
+                        on_progress=show_progress,
+                    )
+                    engine.run([InputFile(path=Path("b.md"), prompt="test")])
+
+            messages = [event.message for event in progress_calls]
+            assert any("Calling Replicate API" in message for message in messages)
+            assert any("Response received" in message for message in messages)
+            assert any("Downloading... 0%" in message for message in messages)
+            assert any("Downloading... 50%" in message for message in messages)
+            assert any("Downloading... 100%" in message for message in messages)
+            assert any("Saved:" in message for message in messages)
+            assert [event.percent for event in progress_calls if event.percent is not None] == [
+                0,
+                50,
+                100,
+            ]
+            assert all(event.current == 1 and event.total == 1 for event in progress_calls)
 
     def test_applies_prefix_suffix(self, tmp_path):
         with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
