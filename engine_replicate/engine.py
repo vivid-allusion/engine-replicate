@@ -46,6 +46,8 @@ class Engine:
 
         results: list[OutputFile] = []
         total = len(inputs)
+        consecutive_conflicts = 0
+        circuit_max = int(self._profile.get("circuit_breaker_max", 3))
 
         for idx, item in enumerate(inputs):
             stem = item.path.stem
@@ -107,6 +109,7 @@ class Engine:
                         expected_path=expected,
                     )
                 else:
+                    consecutive_conflicts = 0
                     for saved_path in saved:
                         results.append(
                             OutputFile(
@@ -134,6 +137,32 @@ class Engine:
                     media_type=media_type,
                     expected_path=expected,
                 )
+                # A billing/auth failure will reject every remaining item —
+                # stop the batch instead of churning through all of them.
+                if self._is_fatal(exc):
+                    self._emit(
+                        f"{prefix} 🛑 Fatal provider error — aborting batch. "
+                        f"Check payment, quota, or API key. ({exc})",
+                        level="error",
+                    )
+                    results.append(output)
+                    break
+                # Transient conflicts exhausted per-item retries. Trip a
+                # circuit breaker after N consecutive ones instead of grinding
+                # the whole batch since it may fail the same way repeatedly.
+                if self._is_rate_limited(exc):
+                    consecutive_conflicts += 1
+                    if consecutive_conflicts >= circuit_max:
+                        self._emit(
+                            f"{prefix} 🛑 Circuit breaker tripped after "
+                            f"{consecutive_conflicts} consecutive rate-limited "
+                            f"failures — aborting batch.",
+                            level="error",
+                        )
+                        results.append(output)
+                        break
+                else:
+                    consecutive_conflicts = 0
 
             results.append(output)
 
@@ -168,31 +197,87 @@ class Engine:
 
     def _request_with_retry(
         self, client, endpoint: str, replicate_input: dict, prefix: str
-    ):
+    ) -> Any:
         max_retries = int(self._profile.get("retry_on_429", 4))
         base_delay = float(self._profile.get("retry_base_delay", 2.0))
-        last_exc = None
+        last_exc: Exception | None = None
         for attempt in range(max_retries + 1):
             try:
                 return client.run(endpoint, input=replicate_input)
             except Exception as exc:
-                if not self._is_rate_limited(exc) or attempt >= max_retries:
+                rate = self._classify_error(exc)
+                if rate != "retryable" or attempt >= max_retries:
                     raise
                 last_exc = exc
-                sleep = base_delay * (2 ** attempt) + random.uniform(0, 1)
+                # High-demand outages (503 / E003) resolve slower than a plain
+                # 429 burst — stretch the delay so we stop hammering the model.
+                long_backoff = self._is_high_demand(exc)
+                sleep = base_delay * (8 if long_backoff else 2) ** attempt + random.uniform(
+                    0, 1
+                )
+                label = "high-demand outage" if long_backoff else "429 rate limit"
                 self._emit(
-                    f"{prefix} ⏳ 429 rate limit, retry {attempt + 1}/{max_retries} in {sleep:.1f}s"
+                    f"{prefix} ⏳ {label}, retry {attempt + 1}/{max_retries} in {sleep:.1f}s"
                 )
                 time.sleep(sleep)
         raise last_exc
 
-    @staticmethod
-    def _is_rate_limited(exc: Exception) -> bool:
+    @classmethod
+    def _classify_error(cls, exc: Exception) -> str:
+        """Classify a provider exception.
+
+        Returns one of ``"retryable"`` (transient load/rate/throttle), ``"fatal"``
+        (billing, auth, quota — re-running will not help), or ``"other"``.
+        """
+        text = str(exc).lower()
         status = getattr(exc, "status", None)
+        if status in (402, 403, 401, 409):
+            return "fatal"
+        if any(
+            token in text
+            for token in (
+                "insufficient",
+                "payment",
+                "billing",
+                "balance",
+                "quota",
+                "no more",
+                "unauthorized",
+                "forbidden",
+            )
+        ):
+            return "fatal"
         if status == 429:
-            return True
-        detail = str(getattr(exc, "detail", "")).lower()
-        return "throttl" in detail or "rate limit" in detail
+            return "retryable"
+        if cls._is_high_demand(exc):
+            return "retryable"
+        if any(
+            token in text
+            for token in ("ratelimit", "rate limit", "throttl", "too many")
+        ):
+            return "retryable"
+        return "other"
+
+    @staticmethod
+    def _is_high_demand(exc: Exception) -> bool:
+        """Detect Replicate E003 / 503 'service currently unavailable' spikes."""
+        text = str(exc).lower()
+        return any(
+            token in text
+            for token in (
+                "high demand",
+                "currently unavailable",
+                "e003",
+                "503",
+                "service unavailable",
+            )
+        )
+
+    def _is_rate_limited(self, exc: Exception) -> bool:
+        return self._classify_error(exc) == "retryable"
+
+    def _is_fatal(self, exc: Exception) -> bool:
+        return self._classify_error(exc) == "fatal"
 
     def _build_replicate_input(
         self, params: dict, prompt: str, item: InputFile, media_type: str

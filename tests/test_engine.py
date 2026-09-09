@@ -742,3 +742,143 @@ class TestListStandbyProfiles:
         from engine_replicate import list_standby_profiles
 
         assert list_standby_profiles("TXT") == []
+
+
+class _FakeError(Exception):
+    def __init__(self, status=None, detail=""):
+        self.status = status
+        self.detail = detail
+        super().__init__(detail or str(status))
+
+
+class TestErrorClassification:
+    def _engine(self):
+        return Engine({"endpoint": "test/model"}, "/tmp/out")
+
+    def test_e003_high_demand_is_retryable(self):
+        err = _FakeError(
+            detail=(
+                "Prediction failed: Async prediction failed: ModelRateLimitError: "
+                "Service is currently unavailable due to high demand. Please try "
+                "again later. (E003)"
+            )
+        )
+        eng = self._engine()
+        assert eng._is_rate_limited(err)
+        assert Engine._classify_error(err) == "retryable"
+        assert eng._is_high_demand(err)
+
+    def test_http_429_is_retryable(self):
+        eng = self._engine()
+        assert eng._is_rate_limited(_FakeError(status=429, detail="rate limited"))
+
+    def test_ratelimit_class_string_is_retryable(self):
+        eng = self._engine()
+        assert eng._is_rate_limited(_FakeError(detail="ModelRateLimitError: boom"))
+
+    def test_insufficient_payment_is_fatal(self):
+        eng = self._engine()
+        assert eng._is_fatal(_FakeError(detail="Insufficient balance to run model"))
+
+    def test_http_402_is_fatal(self):
+        eng = self._engine()
+        assert eng._is_fatal(_FakeError(status=402, detail="Payment required"))
+
+    def test_http_401_is_fatal(self):
+        eng = self._engine()
+        assert eng._is_fatal(_FakeError(status=401, detail="Unauthorized"))
+
+    def test_unknown_5xx_is_neither_retryable_nor_fatal(self):
+        eng = self._engine()
+        err = _FakeError(status=500, detail="internal error")
+        assert not eng._is_rate_limited(err)
+        assert not eng._is_fatal(err)
+
+
+class TestRetryClassificationMatchesE003:
+    def test_real_e003_line_is_retried(self, tmp_path):
+        """Regression: the exact E003 line from the 2026-09-09 run churn."""
+        line = (
+            "Prediction failed: Async prediction failed: ModelRateLimitError: "
+            "Service is currently unavailable due to high demand. Please try "
+            "again later. (E003) (1cah9wlWR9)"
+        )
+        approver = Engine({"endpoint": "test/model"}, "/tmp/out")
+        assert approver._is_rate_limited(_FakeError(detail=line))
+
+        # End-to-end: client.run raises the E003 once, then succeeds.
+        with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
+            mock_replicate = MagicMock()
+            mock_client = MagicMock()
+            mock_client.run.side_effect = [
+                _FakeError(detail=line),
+                ["https://example.com/out.png"],
+            ]
+            mock_replicate.Client.return_value = mock_client
+            with patch.dict("sys.modules", {"replicate": mock_replicate}):
+                with patch("urllib.request.urlretrieve"):
+                    engine = Engine(
+                        {
+                            "endpoint": "test/model",
+                            "media_type": "image",
+                            "retry_on_429": 2,
+                            "retry_base_delay": 0.0,
+                        },
+                        tmp_path,
+                    )
+                    results = engine.run(
+                        [InputFile(path=Path("b.md"), prompt="hello")]
+                    )
+                    assert results[0].status == "ok"
+                    assert mock_client.run.call_count == 2
+
+
+class TestCircutBreakerAndFatalAbort:
+    def test_circuit_breaker_aborts_after_n_consecutive(self, tmp_path):
+        """Sustained E003 failures must stop the batch, not churn all items."""
+        line = "AvailabilityError: high demand (E003)"
+        with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
+            mock_replicate = MagicMock()
+            mock_client = MagicMock()
+            mock_client.run.side_effect = _FakeError(detail=line)
+            mock_replicate.Client.return_value = mock_client
+            with patch.dict("sys.modules", {"replicate": mock_replicate}):
+                engine = Engine(
+                    {
+                        "endpoint": "test/model",
+                        "media_type": "image",
+                        "retry_on_429": 0,
+                        "circuit_breaker_max": 2,
+                    },
+                    tmp_path,
+                )
+                inputs = [
+                    InputFile(path=Path(f"{i}.md"), prompt=f"p{i}") for i in range(6)
+                ]
+                results = engine.run(inputs)
+                # 2 errors recorded (circuit_max), then batch aborted.
+                assert len(results) == 2
+                assert all(r.status == "error" for r in results)
+                # Did not attempt the remaining 4 items.
+                assert mock_client.run.call_count == 2
+
+    def test_fatal_error_aborts_batch_immediately(self, tmp_path):
+        with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
+            mock_replicate = MagicMock()
+            mock_client = MagicMock()
+            mock_client.run.side_effect = _FakeError(
+                status=402, detail="Payment required"
+            )
+            mock_replicate.Client.return_value = mock_client
+            with patch.dict("sys.modules", {"replicate": mock_replicate}):
+                engine = Engine(
+                    {"endpoint": "test/model", "media_type": "image"},
+                    tmp_path,
+                )
+                inputs = [
+                    InputFile(path=Path(f"{i}.md"), prompt=f"p{i}") for i in range(5)
+                ]
+                results = engine.run(inputs)
+                assert len(results) == 1
+                assert results[0].status == "error"
+                assert mock_client.run.call_count == 1
