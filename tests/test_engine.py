@@ -374,7 +374,7 @@ class TestStreamSaveExtension:
 
 
 class TestPromptLogging:
-    def test_bullet_filename_is_emitted_to_progress(self, tmp_path):
+    def test_markdown_filename_is_emitted_to_progress(self, tmp_path):
         with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
             mock_replicate = MagicMock()
             mock_client = MagicMock()
@@ -394,8 +394,8 @@ class TestPromptLogging:
                 )
                 engine.run([InputFile(path=Path("b.md"), prompt="hello")])
 
-            bullets = [c.message for c in progress_calls if "Bullet:" in c.message]
-            assert bullets == ["[1/1] 📝 Bullet: b.md"]
+            markdowns = [c.message for c in progress_calls if "Markdown:" in c.message]
+            assert markdowns == ["[1/1] 📝 Markdown: b.md"]
             assert not any("Prompt:" in c.message for c in progress_calls)
 
     def test_empty_prompt_is_not_logged(self, tmp_path):

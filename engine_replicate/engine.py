@@ -76,7 +76,7 @@ class Engine:
                 results.append(output)
                 continue
 
-            self._emit(f"{prefix} 📝 Bullet: {item.path.name}")
+            self._emit(f"{prefix} 📝 Markdown: {item.path.name}")
 
             replicate_input: dict | None = None
             try:
@@ -424,7 +424,7 @@ class Engine:
             if len(urls) > 1:
                 raise EngineError(
                     f"Param '{key}' accepts a single media URL but {len(urls)} "
-                    f"were provided — fix the bullet: {urls}"
+                    f"were provided — fix the markdown: {urls}"
                 )
             return urls[0]
         return urls[0] if len(urls) == 1 else urls
