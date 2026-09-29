@@ -48,7 +48,7 @@ engine = Engine(profile=profile, output_dir="/tmp/out")
 
 inputs = [
     InputFile(
-        path=Path("bullet-001.md"),
+        path=Path("markdown-001.md"),
         prompt="a cinematic shot of a city at night",
         reference_urls=["https://example.com/ref.jpg"],
     ),

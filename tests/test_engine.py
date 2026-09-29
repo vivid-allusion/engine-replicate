@@ -189,7 +189,7 @@ class TestEngineRun:
                 assert results[0].status == "error"
                 assert "Empty prompt" in results[0].error_msg
 
-    def test_per_bullet_error_returns_error_outputfile(self, tmp_path):
+    def test_per_markdown_file_error_returns_error_outputfile(self, tmp_path):
         with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
             mock_replicate = MagicMock()
             mock_client = MagicMock()
@@ -221,8 +221,8 @@ class TestEngineRun:
                         {"endpoint": "test/model", "media_type": "image"},
                         tmp_path,
                     )
-                    bullets = [InputFile(path=Path(f"b{i}.md"), prompt="test") for i in range(3)]
-                    results = engine.run(bullets)
+                    markdown_files = [InputFile(path=Path(f"b{i}.md"), prompt="test") for i in range(3)]
+                    results = engine.run(markdown_files)
                     statuses = [r.status for r in results]
                     assert statuses.count("ok") == 2
                     assert statuses.count("error") == 1
@@ -492,7 +492,7 @@ class TestImports:
 
 
 class TestBuildReplicateInput:
-    """Slot routing + per-bullet duration override for video payloads."""
+    """Slot routing + per-Markdown-file duration override for video payloads."""
 
     def _build(self, profile, item, params=None, schema=None):
         engine = Engine(profile, "/tmp/out")
