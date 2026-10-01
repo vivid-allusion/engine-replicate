@@ -2,10 +2,10 @@
 
 Engine wrapper for the [Replicate](https://replicate.com) API.
 
-Part of the [studiolot](https://github.com/vivid-allusion/studiolot) Vehicle /
+Part of the [studiolot](https://github.com/vivid-allusion/studiolot) Generator /
 Engine / SDK architecture. This repo wraps the `replicate` Python SDK behind a
-uniform interface that Vehicles (Frame Composer, Motion Conductor, etc.) call.
-The Vehicle never imports `replicate` directly — it calls this Engine.
+uniform interface that Generators (Image Generator, Video Generator, etc.) call.
+The Generator never imports `replicate` directly — it calls this Engine.
 
 See `docs/architecture/ENGINE_CONTRACT.md` in the studiolot repo for the full
 interface contract.

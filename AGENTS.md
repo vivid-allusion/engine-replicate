@@ -1,15 +1,15 @@
 ## Architecture: Engine SDK Wrapper
 
 This repo is an **Engine** in the studiolot ecosystem. It wraps the
-**Replicate** API and exposes a uniform interface that Vehicles call.
+**Replicate** API and exposes a uniform interface that Generators call.
 
 ### The layers
 
 ```
-studiolot (TUI) → Vehicle (script) → **Replicate Engine** → Provider API
+studiolot (TUI) → Generator (script) → **Replicate Engine** → Provider API
 ```
 
-Vehicles like Frame Composer and Motion Conductor are SDK-agnostic. They
+Generators like Image Generator and Video Generator are SDK-agnostic. They
 discover this Engine, load it via `engine_loader.py`, and call
 `engine.run(inputs)`. This Engine handles all **Replicate**-specific logic.
 
@@ -19,11 +19,11 @@ discover this Engine, load it via `engine_loader.py`, and call
   constructor. It only stores: profile dict, output_dir, api_key,
   on_progress callback.
 - **`Engine.run(inputs: list[InputFile]) -> list[OutputFile]`** is the ONLY
-  entry point Vehicles call. Returns ALL results — success and failure —
+  entry point Generators call. Returns ALL results — success and failure —
   as OutputFile objects. Never raises for per-Markdown-file failures.
 - **Error results carry `expected_path`**: the destination filename is
   precomputed BEFORE the API call (profile `output_format`/media default
-  extension) so Vehicles can write error placeholders at the exact name.
+  extension) so Generators can write error placeholders at the exact name.
 - **`EngineError`** is for unrecoverable pre-flight failures only: missing
   API key, invalid profile, provider auth rejection.
 - **`datatypes.py`** defines InputFile, OutputFile, ProgressEvent,
@@ -35,9 +35,9 @@ discover this Engine, load it via `engine_loader.py`, and call
   defining valid parameter ranges.
 - **`profiles/standby/`** contains publishable YAML profiles, organized by
   media category (`IMG/` and `VID/`) mirroring `endpoints/`. When installed,
-  these are seeded into Vehicle repos' `USER-FILES/02.STANDBY/`, filtered by
-  the loading Vehicle's declared media type (Frame Composer → IMG, Motion
-  Conductor → VID).
+  these are seeded into Generator repos' `USER-FILES/02.STANDBY/`, filtered by
+  the loading Generator's declared media type (Image Generator → IMG,
+  Video Generator → VID).
 
 ## NON-NEGOTIABLE: Endpoint TOMLs Mirror the Live Schema
 
@@ -92,7 +92,7 @@ The rules, hard:
 
 ### Engine discovery
 
-Vehicles find this Engine via `engine_loader.py`:
+Generators find this Engine via `engine_loader.py`:
 - Repo directory: `engine-replicate` 
 - Python package: `engine_replicate`
 - `engine_loader.py` handles the hyphen→underscore mapping
@@ -123,7 +123,7 @@ Full contract: `~/Nextcloud/00-DEVELOPMENT/MISC_DEV_TOOLS/studiolot/docs/archite
 - 2026-09-05 — Error events carry the API payload
   - `Engine.run()` declares `replicate_input` before the try block and
     attaches it to error progress events (`api_payload=`), so a failed API
-    call reports the exact payload that was rejected — vehicles log it into
+    call reports the exact payload that was rejected — generators log it into
     their per-file run logs. 79 green.
 - 2026-09-05 — TOML Catalog Swept to Mirror Live Schemas (21/21 clean)
   - Policy (see NON-NEGOTIABLE section above): endpoint TOMLs must declare
@@ -172,14 +172,14 @@ Full contract: `~/Nextcloud/00-DEVELOPMENT/MISC_DEV_TOOLS/studiolot/docs/archite
     p-video schema and previously evaded type detection.
   - Verified against the live prunaai/p-video schema: duration/fps coerce
     to int 5 / 24 (fps within enum [24, 48]); 63 green.
-- 2026-09-05 — Vehicle-aware standby shelves (MC/FC seeding split)
+- 2026-09-05 — Generator-aware standby shelves (MC/FC seeding split)
   - `profiles/standby/` reorganized into `IMG/` (30 existing image YAMLs,
     moved) and `VID/` (11 new video YAMLs authored from `endpoints/VID-Models/`
     defaults: kling-2.5-turbo-pro, kling-v2.6, kling-v3-video, seedance-2.0,
     seedance-lite, seedance-pro, wan-2.5-i2v, p-video, veo-3, veo-3.1,
     grok-imagine-video).
   - `list_standby_profiles(media_type=None)` selects a shelf (`IMG`/`VID`,
-    case-insensitive; `None` → every shelf, legacy behavior). Vehicles declare
+    case-insensitive; `None` → every shelf, legacy behavior). Generators declare
     their media type (MC → VID, FC → IMG) through the vendored
     `copy_standby_profiles(media_type=...)`; engines without the parameter
     fall back to the no-arg call.
