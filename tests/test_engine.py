@@ -1075,3 +1075,62 @@ class TestErrorLog:
         assert results[0].status == "ok"
         assert results[0].metadata.get("error_log") is None
         assert list(tmp_path.glob("*_ERROR.log")) == []
+
+
+class TestSchemaLessMediaCoercion:
+    """minimax/h3 exposes no openapi schema: reference-list slots stay arrays."""
+
+    def _engine(self, tmp_path, slots):
+        eng = Engine(
+            profile={
+                "endpoint": "minimax/h3",
+                "image_url_param": "first_frame_image",
+                "slots": slots,
+            },
+            output_dir=tmp_path,
+        )
+        eng._input_props_cache = {}  # force the schema-unavailable path, no network
+        return eng
+
+    def test_single_url_reference_image_urls_stays_list(self, tmp_path):
+        eng = self._engine(tmp_path, ["last_frame_image", "reference_image_urls"])
+        assert eng._coerce_media_value(
+            "reference_image_urls", ["https://example.com/1.png"]
+        ) == ["https://example.com/1.png"]
+
+    def test_single_url_reference_images_stays_list(self, tmp_path):
+        eng = self._engine(tmp_path, ["reference_images"])
+        assert eng._coerce_media_value(
+            "reference_images", ["https://example.com/1.png"]
+        ) == ["https://example.com/1.png"]
+
+    def test_single_url_single_image_slots_stay_strings(self, tmp_path):
+        eng = self._engine(tmp_path, ["last_frame_image", "reference_image_urls"])
+        assert (
+            eng._coerce_media_value("first_frame_image", ["https://example.com/1.png"])
+            == "https://example.com/1.png"
+        )
+        assert (
+            eng._coerce_media_value("last_frame_image", ["https://example.com/1.png"])
+            == "https://example.com/1.png"
+        )
+
+    def test_undeclared_urls_key_keeps_legacy_fallback(self, tmp_path):
+        eng = self._engine(tmp_path, ["reference_image_urls"])
+        assert (
+            eng._coerce_media_value("other_urls", ["https://example.com/1.png"])
+            == "https://example.com/1.png"
+        )
+
+
+class TestTimeoutRetryability:
+    def test_httpx_read_timeout_is_retryable_and_not_fatal(self, tmp_path):
+        import httpx
+
+        exc = httpx.ReadTimeout("read timed out")
+        assert Engine._classify_error(exc) == "retryable"
+        eng = Engine(profile={}, output_dir=tmp_path)
+        assert eng._is_fatal(exc) is False
+
+    def test_builtin_timeout_error_is_retryable(self):
+        assert Engine._classify_error(TimeoutError("timed out")) == "retryable"

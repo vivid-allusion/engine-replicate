@@ -15,6 +15,11 @@ from .datatypes import EngineError, InputFile, OutputFile, ProgressEvent
 
 _EMBEDDED_TIMESTAMP_RE = re.compile(r"(?<![0-9])[0-9]{6}_[0-9]{6}(?![0-9])")
 
+# Reference-list slot shapes: even when the endpoint exposes no live schema
+# (e.g. minimax/h3), a single URL routed to one of these slots must stay an
+# array — providers 422 on a string. Single-image slots (…_image) never match.
+_URL_LIST_SLOT_SUFFIXES = ("_urls", "_images", "_videos", "_audios")
+
 _MASKED = "***MASKED***"
 _KEY_LIKE_RE = re.compile(r"\br8_[A-Za-z0-9]{4,}\b")
 _SECRET_FIELD_RE = re.compile(
@@ -392,7 +397,12 @@ class Engine:
                 sleep = base_delay * (8 if long_backoff else 2) ** attempt + random.uniform(
                     0, 1
                 )
-                label = "high-demand outage" if long_backoff else "429 rate limit"
+                if long_backoff:
+                    label = "high-demand outage"
+                elif self._is_timeout(exc):
+                    label = "request timeout"
+                else:
+                    label = "429 rate limit"
                 self._emit(
                     f"{prefix} ⏳ {label}, retry {attempt + 1}/{max_retries} in {sleep:.1f}s"
                 )
@@ -433,6 +443,8 @@ class Engine:
             for token in ("ratelimit", "rate limit", "throttl", "too many")
         ):
             return "retryable"
+        if cls._is_timeout(exc):
+            return "retryable"
         return "other"
 
     @staticmethod
@@ -449,6 +461,18 @@ class Engine:
                 "service unavailable",
             )
         )
+
+    @staticmethod
+    def _is_timeout(exc: Exception) -> bool:
+        """Client-side timeouts (cold model starts) — retryable, never fatal."""
+        if isinstance(exc, TimeoutError):
+            return True
+        try:
+            import httpx
+
+            return isinstance(exc, httpx.TimeoutException)
+        except ImportError:
+            return False
 
     def _is_rate_limited(self, exc: Exception) -> bool:
         return self._classify_error(exc) == "retryable"
@@ -583,8 +607,11 @@ class Engine:
 
         String-typed params (start_image, end_image, image, ...) receive a
         single URL; array-typed params (reference_images, ...) receive the
-        full list. When the schema is unknown, a single URL degrades to a
-        string and multiple URLs stay a list.
+        full list. When the schema is unknown, a profile-declared
+        reference-list slot (``reference_image_urls``, ``reference_images``,
+        ...) still receives the full list — a single URL sent as a string is a
+        provider 422 (minimax/h3). Other params keep the historical fallback:
+        a single URL degrades to a string, multiple URLs stay a list.
 
         Raises:
             EngineError: multiple URLs routed to a string-typed param — the
@@ -604,6 +631,11 @@ class Engine:
                     f"were provided — fix the markdown: {urls}"
                 )
             return urls[0]
+        declared_slots = self._profile.get("slots") or []
+        if param_type is None and key in declared_slots and key.endswith(
+            _URL_LIST_SLOT_SUFFIXES
+        ):
+            return urls
         return urls[0] if len(urls) == 1 else urls
 
     def _save_results(
