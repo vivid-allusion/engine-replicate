@@ -963,3 +963,115 @@ class TestCircutBreakerAndFatalAbort:
                 assert len(results) == 1
                 assert results[0].status == "error"
                 assert mock_client.run.call_count == 1
+
+
+class TestErrorLog:
+    """Every per-item failure writes a verbose `<base>-<idx>_ERROR.log`."""
+
+    def _run(
+        self,
+        tmp_path,
+        *,
+        exc: Exception | None = None,
+        output="https://example.com/out.png",
+        prompt: str = "test",
+        profile: dict | None = None,
+        item: InputFile | None = None,
+    ):
+        with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
+            mock_replicate = MagicMock()
+            mock_client = MagicMock()
+            if exc is not None:
+                mock_client.run.side_effect = exc
+            else:
+                mock_client.run.return_value = output
+            mock_replicate.Client.return_value = mock_client
+            full_profile = {"endpoint": "test/model", "media_type": "image"}
+            full_profile.update(profile or {})
+            with patch.dict("sys.modules", {"replicate": mock_replicate}):
+                engine = Engine(full_profile, tmp_path)
+                return engine.run([item or InputFile(path=Path("b.md"), prompt=prompt)])
+
+    def test_provider_exception_writes_error_log(self, tmp_path):
+        results = self._run(tmp_path, exc=RuntimeError("API timeout"))
+        result = results[0]
+        assert result.status == "error"
+
+        log_path = Path(result.metadata["error_log"])
+        assert log_path.name == f"{result.expected_path.stem}_ERROR.log"
+        assert log_path.parent == result.expected_path.parent
+
+        content = log_path.read_text(encoding="utf-8")
+        assert content.startswith(f"{log_path.name} — generation failure")
+        assert "item: 1 of 1" in content
+        assert f"source: {Path('b.md').resolve()}" in content
+        assert f"expected: {result.expected_path.resolve()}" in content
+        assert "platform: replicate" in content
+        assert "endpoint: test/model" in content
+        assert "error stage: provider_call" in content
+        assert "error: RuntimeError: API timeout" in content
+        assert "Traceback (most recent call last):" in content
+        assert '"prompt": "test"' in content
+        assert "api payload:" in content
+
+    def test_no_output_writes_error_log(self, tmp_path):
+        results = self._run(tmp_path, output=None)
+        result = results[0]
+        assert result.status == "error"
+
+        content = Path(result.metadata["error_log"]).read_text(encoding="utf-8")
+        assert "error stage: no_output" in content
+        assert "error: No output returned from replicate" in content
+        assert "traceback: n/a" in content
+        assert '"prompt": "test"' in content
+
+    def test_empty_prompt_writes_error_log(self, tmp_path):
+        results = self._run(tmp_path, prompt="   ")
+        result = results[0]
+        assert result.status == "error"
+
+        content = Path(result.metadata["error_log"]).read_text(encoding="utf-8")
+        assert "error stage: empty_prompt" in content
+        assert "error: Empty prompt after applying prefix/suffix" in content
+        assert "traceback: n/a" in content
+        assert "api payload:\nnull" in content
+
+    def test_save_download_failure_writes_error_log(self, tmp_path):
+        with patch("urllib.request.urlretrieve", side_effect=OSError("disk full")):
+            results = self._run(tmp_path)
+        result = results[0]
+        assert result.status == "error"
+
+        content = Path(result.metadata["error_log"]).read_text(encoding="utf-8")
+        assert "error stage: save" in content
+        assert "error: OSError: disk full" in content
+        assert "Traceback (most recent call last):" in content
+
+    def test_error_log_created_in_missing_relative_dir(self, tmp_path):
+        item = InputFile(
+            path=Path("b.md"),
+            prompt="test",
+            metadata={"relative_dir": "scene1/nested"},
+        )
+        results = self._run(tmp_path, exc=RuntimeError("boom"), item=item)
+        log_path = Path(results[0].metadata["error_log"])
+        assert log_path.parent == tmp_path / "scene1" / "nested"
+        assert log_path.exists()
+
+    def test_error_log_masks_key_like_values(self, tmp_path):
+        results = self._run(
+            tmp_path,
+            exc=RuntimeError("boom r8_offendingtoken99"),
+            profile={"api_key": "r8_secretvalue123"},
+        )
+        content = Path(results[0].metadata["error_log"]).read_text(encoding="utf-8")
+        assert "r8_secretvalue123" not in content
+        assert "r8_offendingtoken99" not in content
+        assert "***MASKED***" in content
+
+    def test_success_writes_no_error_log(self, tmp_path):
+        with patch("urllib.request.urlretrieve"):
+            results = self._run(tmp_path)
+        assert results[0].status == "ok"
+        assert results[0].metadata.get("error_log") is None
+        assert list(tmp_path.glob("*_ERROR.log")) == []
