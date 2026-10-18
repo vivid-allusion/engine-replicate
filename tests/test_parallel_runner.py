@@ -71,6 +71,25 @@ def ok_impl(endpoint, input):
     return [f"https://example.com/{input['prompt']}.png"]
 
 
+def _run_engine_n(profile, out_dir, impl, n=3, probe=False, progress_calls=None):
+    mock_replicate = MagicMock()
+    mock_client = MagicMock()
+    call = _Probe(impl) if probe else impl
+    mock_client.run.side_effect = call
+    mock_replicate.Client.return_value = mock_client
+    recorder = progress_calls if progress_calls is not None else []
+    with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
+        with patch.dict("sys.modules", {"replicate": mock_replicate}):
+            with patch("urllib.request.urlretrieve"):
+                with patch(
+                    "engine_replicate.engine.datetime",
+                    TestConcurrencyKey._frozen_datetime(),
+                ):
+                    engine = Engine(profile, out_dir, on_progress=recorder.append)
+                    results = engine.run(inputs_stub(n))
+    return results, recorder, call
+
+
 class TestParallelRunner:
     def _parallel_profile(self, **extra):
         return {
@@ -183,3 +202,74 @@ class TestParallelRunner:
         )
         assert any("📝 Markdown: b1.md" in e.message for e in progress)
         assert any(e.message.startswith("[2/3]") for e in progress)
+
+    def test_results_order_survives_staggered_completion(self, tmp_path):
+        def impl(endpoint, input):
+            time.sleep(_HOLD if input["prompt"] == "p0" else 0.12)
+            return [f"https://example.com/{input['prompt']}.png"]
+
+        results, _, _ = _run_engine(
+            self._parallel_profile(), tmp_path, impl, probe=True
+        )
+        assert [r.source_path.name for r in results] == ["b0.md", "b1.md", "b2.md"]
+        assert [r.status for r in results] == ["ok", "ok", "ok"]
+
+    def test_fatal_error_never_starts_queued_items(self, tmp_path):
+        called = []
+        lock = threading.Lock()
+
+        def impl(endpoint, input):
+            with lock:
+                called.append(input["prompt"])
+            if input["prompt"] == "p0":
+                raise _FakeError(status=402, detail="Payment required")
+            time.sleep(_HOLD)
+            return [f"https://example.com/{input['prompt']}.png"]
+
+        profile = self._parallel_profile(
+            concurrency=2, retry_on_429=0
+        )
+        results, _, _ = _run_engine_n(profile, tmp_path, impl, n=6, probe=True)
+        assert results[0].status == "error"
+        assert "b0.md" in results[0].source_path.name
+        if len(results) > 1:
+            assert results[1].status in ("ok", "error")
+            assert "b1.md" in results[1].source_path.name
+        assert len(results) <= 2
+        assert set(called) <= {"p0", "p1"}
+        assert "p2" not in called and "p5" not in called
+
+    def test_circuit_breaker_never_starts_queued_items(self, tmp_path):
+        called = []
+        lock = threading.Lock()
+
+        def impl(endpoint, input):
+            with lock:
+                called.append(input["prompt"])
+            raise _FakeError(status=429, detail="Too many requests")
+
+        profile = self._parallel_profile(
+            concurrency=2, retry_on_429=0, retry_base_delay=0.05, circuit_breaker_max=2
+        )
+        results, progress, _ = _run_engine_n(profile, tmp_path, impl, n=6, probe=True)
+        assert any("Circuit breaker tripped" in e.message for e in progress)
+        assert len(called) <= 3
+        assert set(called) <= {"p0", "p1", "p2"}
+        assert results
+        assert all(r.status == "error" for r in results)
+
+    def test_non_fatal_failure_keeps_the_batch_going(self, tmp_path):
+        called = []
+
+        def impl(endpoint, input):
+            called.append(input["prompt"])
+            if input["prompt"] == "p0":
+                raise RuntimeError("provider blew up")
+            time.sleep(_HOLD)
+            return [f"https://example.com/{input['prompt']}.png"]
+
+        results, _, _ = _run_engine_n(
+            self._parallel_profile(), tmp_path, impl, n=4, probe=True
+        )
+        assert [r.status for r in results] == ["error", "ok", "ok", "ok"]
+        assert set(called) == {"p0", "p1", "p2", "p3"}
