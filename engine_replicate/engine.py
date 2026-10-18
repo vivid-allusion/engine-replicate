@@ -31,6 +31,7 @@ class Engine:
         self._on_progress = on_progress
         self._prefix = profile.get("prompt_prefix", "")
         self._suffix = profile.get("prompt_suffix", "")
+        self._concurrency = profile.get("concurrency", 1)
         self._input_props_cache: dict | None = None
 
     def run(self, inputs: list[InputFile]) -> list[OutputFile]:
@@ -171,6 +172,15 @@ class Engine:
     def _validate_preflight(self):
         if not self._profile.get("endpoint"):
             raise EngineError("Missing or empty 'endpoint' in profile")
+        if (
+            isinstance(self._concurrency, bool)
+            or not isinstance(self._concurrency, int)
+            or self._concurrency < 1
+        ):
+            raise EngineError(
+                f"Invalid 'concurrency' in profile: {self._concurrency!r} — "
+                "must be a whole number >= 1"
+            )
         try:
             importlib.import_module("replicate")
         except ImportError:
