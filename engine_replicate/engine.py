@@ -1,6 +1,4 @@
 import importlib
-import os
-import random
 import time
 import urllib.request
 from collections.abc import Callable
@@ -9,9 +7,11 @@ from pathlib import Path
 from typing import Any
 
 from .datatypes import EngineError, InputFile, OutputFile, ProgressEvent
+from .input_builder import InputBuilder
+from .retry_policy import RetryPolicy
 
 
-class Engine:
+class Engine(InputBuilder, RetryPolicy):
     PLATFORM: str = "replicate"
     PROVIDER_NAME: str = "Replicate"
     PROVIDER_HOMEPAGE: str = "https://replicate.com"
@@ -193,11 +193,6 @@ class Engine:
         if not self._resolve_api_key():
             raise EngineError(f"{self.API_KEY_ENV_VAR} not set in environment or .env file")
 
-    def _resolve_api_key(self) -> str:
-        if self._api_key:
-            return self._api_key
-        return os.environ.get(self.API_KEY_ENV_VAR, "")
-
     def _default_extension(self, media_type: str) -> str:
         """Profile-driven extension used for precomputed output names."""
         output_format = (
@@ -210,239 +205,8 @@ class Engine:
             return f".{output_format}"
         return ".mp4" if media_type == "video" else ".png"
 
-    def _request_with_retry(
-        self, client, endpoint: str, replicate_input: dict, prefix: str
-    ) -> Any:
-        max_retries = int(self._profile.get("retry_on_429", 4))
-        base_delay = float(self._profile.get("retry_base_delay", 2.0))
-        last_exc: Exception | None = None
-        for attempt in range(max_retries + 1):
-            try:
-                return client.run(endpoint, input=replicate_input)
-            except Exception as exc:
-                rate = self._classify_error(exc)
-                if rate != "retryable" or attempt >= max_retries:
-                    raise
-                last_exc = exc
-                # High-demand outages (503 / E003) resolve slower than a plain
-                # 429 burst — stretch the delay so we stop hammering the model.
-                long_backoff = self._is_high_demand(exc)
-                sleep = base_delay * (8 if long_backoff else 2) ** attempt + random.uniform(
-                    0, 1
-                )
-                label = "high-demand outage" if long_backoff else "429 rate limit"
-                self._emit(
-                    f"{prefix} ⏳ {label}, retry {attempt + 1}/{max_retries} in {sleep:.1f}s"
-                )
-                time.sleep(sleep)
-        raise last_exc
-
-    @classmethod
-    def _classify_error(cls, exc: Exception) -> str:
-        """Classify a provider exception.
-
-        Returns one of ``"retryable"`` (transient load/rate/throttle), ``"fatal"``
-        (billing, auth, quota — re-running will not help), or ``"other"``.
-        """
-        text = str(exc).lower()
-        status = getattr(exc, "status", None)
-        if status in (402, 403, 401, 409):
-            return "fatal"
-        if any(
-            token in text
-            for token in (
-                "insufficient",
-                "payment",
-                "billing",
-                "balance",
-                "quota",
-                "no more",
-                "unauthorized",
-                "forbidden",
-            )
-        ):
-            return "fatal"
-        if status == 429:
-            return "retryable"
-        if cls._is_high_demand(exc):
-            return "retryable"
-        if any(
-            token in text
-            for token in ("ratelimit", "rate limit", "throttl", "too many")
-        ):
-            return "retryable"
-        return "other"
-
-    @staticmethod
-    def _is_high_demand(exc: Exception) -> bool:
-        """Detect Replicate E003 / 503 'service currently unavailable' spikes."""
-        text = str(exc).lower()
-        return any(
-            token in text
-            for token in (
-                "high demand",
-                "currently unavailable",
-                "e003",
-                "503",
-                "service unavailable",
-            )
-        )
-
-    def _is_rate_limited(self, exc: Exception) -> bool:
-        return self._classify_error(exc) == "retryable"
-
-    def _is_fatal(self, exc: Exception) -> bool:
-        return self._classify_error(exc) == "fatal"
-
-    def _build_replicate_input(
-        self, params: dict, prompt: str, item: InputFile, media_type: str
-    ) -> dict:
-        props = self._input_props()
-        replicate_input = {k: self._coerce_param_value(k, v, props) for k, v in params.items()}
-        replicate_input.pop("prompt_prefix", None)
-        replicate_input.pop("prompt_suffix", None)
-
-        replicate_input["prompt"] = prompt
-        ref_key = self._reference_key()
-        if item.reference_urls:
-            replicate_input[ref_key] = self._coerce_media_value(ref_key, item.reference_urls)
-        for slot, urls in item.references.items():
-            if urls or slot in self._required_slots():
-                replicate_input[slot] = self._coerce_media_value(slot, urls)
-
-        duration = item.metadata.get("duration")
-        if duration is not None:
-            key = str(self._profile.get("duration_param_name", "duration"))
-            replicate_input[key] = self._coerce_param_value(key, duration, props)
-
-        return replicate_input
-
-    def _reference_key(self) -> str:
-        """Primary input key: profile's image_url_param, else reference_param,
-        else the provider default image_input."""
-        for key in ("image_url_param", "reference_param"):
-            value = self._profile.get(key)
-            if value:
-                return str(value)
-        return "image_input"
-
-    def _required_slots(self) -> set[str]:
-        return set(self._profile.get("required_slots") or [])
-
-    def _input_props(self) -> dict:
-        """Best-effort fetch of the endpoint's Input JSON-schema properties.
-
-        Used to shape media params (single URL vs list) and scalar params
-        (int vs float vs string) against the model schema. ``$ref``/``allOf``
-        fragments are resolved to concrete type dicts. Cached per Engine
-        instance; returns {} when the schema is unavailable.
-        """
-        if self._input_props_cache is not None:
-            return self._input_props_cache
-        props: dict = {}
-        try:
-            import replicate
-
-            client = replicate.Client(api_token=self._resolve_api_key())
-            model = client.models.get(str(self._profile.get("endpoint", "")))
-            schema = getattr(model.latest_version, "openapi_schema", None) or {}
-            raw = (
-                schema.get("components", {})
-                .get("schemas", {})
-                .get("Input", {})
-                .get("properties", {})
-            ) or {}
-            props = {
-                key: self._resolve_schema_refs(value, schema)
-                for key, value in raw.items()
-                if isinstance(value, dict)
-            }
-        except Exception:
-            props = {}
-        if not isinstance(props, dict):
-            props = {}
-        self._input_props_cache = props
-        return props
-
-    def _resolve_schema_refs(self, node: Any, root: dict) -> Any:
-        """Resolve ``$ref``/``allOf`` fragments into a concrete schema dict."""
-        if not isinstance(node, dict):
-            return node
-        resolved: dict = {}
-        if "$ref" in node and isinstance(node["$ref"], str):
-            target: Any = root
-            for part in node["$ref"].lstrip("#/").split("/"):
-                target = target.get(part) if isinstance(target, dict) else None
-                if target is None:
-                    break
-            if isinstance(target, dict):
-                resolved.update(self._resolve_schema_refs(target, root))
-        resolved.update({k: v for k, v in node.items() if k not in ("$ref", "allOf")})
-        for fragment in node.get("allOf", []):
-            merged = self._resolve_schema_refs(fragment, root)
-            if isinstance(merged, dict):
-                for k, v in merged.items():
-                    resolved.setdefault(k, v)
-        return resolved
-
-    def _coerce_param_value(self, key: str, value: Any, props: dict) -> Any:
-        """Coerce a scalar parameter against the model's schema type.
-
-        Integer-typed params (duration, fps, ...) receive an int when the
-        profile ships a numeric string; number/boolean params coerce
-        likewise. Non-convertible values (e.g. token durations like
-        ``auto``) pass through verbatim, as do all values when the schema
-        is unavailable.
-        """
-        param = props.get(key, {})
-        param_type = param.get("type") if isinstance(param, dict) else None
-        if not isinstance(value, str):
-            return value
-        if param_type == "integer":
-            try:
-                return int(value)
-            except ValueError:
-                return value
-        if param_type == "number":
-            try:
-                return float(value)
-            except ValueError:
-                return value
-        if param_type == "boolean":
-            lowered = value.strip().lower()
-            if lowered in {"true", "yes", "1", "on"}:
-                return True
-            if lowered in {"false", "no", "0", "off"}:
-                return False
-        return value
-
-    def _coerce_media_value(self, key: str, urls: list[str]) -> str | list[str]:
-        """Shape URLs for a media parameter against the model's schema.
-
-        String-typed params (start_image, end_image, image, ...) receive a
-        single URL; array-typed params (reference_images, ...) receive the
-        full list. When the schema is unknown, a single URL degrades to a
-        string and multiple URLs stay a list.
-
-        Raises:
-            EngineError: multiple URLs routed to a string-typed param — the
-                provider can only accept one, so the extra media must never
-                be silently dropped.
-        """
-        if not urls:
-            return []
-        param = self._input_props().get(key, {})
-        param_type = param.get("type") if isinstance(param, dict) else None
-        if param_type == "array":
-            return urls
-        if param_type == "string":
-            if len(urls) > 1:
-                raise EngineError(
-                    f"Param '{key}' accepts a single media URL but {len(urls)} "
-                    f"were provided — fix the markdown: {urls}"
-                )
-            return urls[0]
-        return urls[0] if len(urls) == 1 else urls
+    def _now_string(self) -> str:
+        return datetime.now().strftime("%y%m%d_%H%M%S")
 
     def _save_results(
         self,

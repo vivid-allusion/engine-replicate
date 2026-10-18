@@ -15,7 +15,6 @@ collected.
 import concurrent.futures
 import threading
 import time
-from datetime import datetime
 
 from .datatypes import OutputFile
 
@@ -53,7 +52,7 @@ def run_item(engine, client, item, idx, total, state) -> list[OutputFile]:
     media_type = engine._profile.get("media_type", "")
     rel_dir = str(item.metadata.get("relative_dir", "") or "")
     dest_dir = engine._output_dir / rel_dir if rel_dir else engine._output_dir
-    ts = datetime.now().strftime("%y%m%d_%H%M%S")
+    ts = engine._now_string()
     ext = engine._default_extension(media_type)
     expected = dest_dir / f"{ts}-{stem}-{idx}{ext}"
 
