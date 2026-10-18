@@ -283,8 +283,13 @@ class TestParallelRunner:
             rm.BatchState.halt = real_halt
 
         assert statuses_of(results) == ["error", "ok"]
-        assert "-b1-1." in results[1].path.name
+        assert results[1].source_path.name == "b1.md"
+        assert results[0].source_path.name == "b0.md"
         assert results[0].error_msg == "Payment required"
+        assert set(called) == {"p0", "p1"}
+        assert "p2" not in called and "p3" not in called
+        assert "p4" not in called and "p5" not in called
+        assert len(results) == 2
 
     def test_fatal_stops_are_deterministic_under_repetition(self, tmp_path):
         for attempt in range(5):
