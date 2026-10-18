@@ -2,6 +2,7 @@
 platform: replicate
 endpoint: bytedance/seedance-2.5
 media_type: video
+concurrency: 1
 image_url_param: image
 duration_type: seconds
 duration_param_name: duration

@@ -2,6 +2,7 @@
 platform: replicate
 endpoint: bytedance/seedream-4
 media_type: image
+concurrency: 1
 parameters:
   aspect_ratio: "1:1"
   size: "1K"

@@ -2,6 +2,7 @@
 platform: replicate
 endpoint: black-forest-labs/flux-2-max
 media_type: image
+concurrency: 1
 reference_param: input_images
 parameters:
   width: 1024

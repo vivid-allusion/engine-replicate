@@ -2,6 +2,7 @@
 platform: replicate
 endpoint: google/nano-banana-2
 media_type: image
+concurrency: 1
 parameters:
   aspect_ratio: "9:16"
   output_format: "png"

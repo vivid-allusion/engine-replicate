@@ -2,6 +2,7 @@
 platform: replicate
 endpoint: wan-video/wan-2.7-image
 media_type: image
+concurrency: 1
 reference_param: images
 parameters:
   size: "1K"

@@ -2,6 +2,7 @@
 platform: replicate
 endpoint: kwaivgi/kling-v3-video
 media_type: video
+concurrency: 1
 image_url_param: start_image
 duration_type: seconds
 duration_param_name: duration
