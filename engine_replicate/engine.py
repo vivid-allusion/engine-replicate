@@ -39,6 +39,11 @@ class Engine:
 
         import replicate
 
+        if self._concurrency > 1:
+            from . import runner
+
+            return runner.run_batch(self, inputs)
+
         client = replicate.Client(api_token=self._resolve_api_key(), timeout=600.0)
         endpoint = self._profile["endpoint"]
         params = dict(self._profile.get("parameters", {}))
