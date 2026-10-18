@@ -6,10 +6,49 @@ stretched high-demand backoff, and Retry-After honoring; the classifier
 is untouched).
 """
 
+from typing import Any  # noqa: TC003 - supported Python versions
+
 import os
 import random
 import time
-from typing import Any
+from email.utils import parsedate_to_datetime
+
+
+def _retry_after_seconds(exc):
+    """Seconds named by an exception's Retry-After header, or None.
+
+    Guards every malformed shape: missing headers, None, a non-mapping
+    (a string, a list), or an unparseable value. Numeric strings and the
+    standard HTTP-date form are both honored; backoff always sleeps at
+    LEAST the requested value — the max semantics stay.
+    """
+    headers = getattr(exc, "headers", None)
+    if not headers or not hasattr(headers, "get"):
+        return None
+    value = None
+    try:
+        for key in headers:
+            if str(key).lower() == "retry-after":
+                value = headers.get(key)
+                break
+    except Exception:
+        return None
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return max(0.0, float(value))
+    text = str(value).strip()
+    try:
+        return max(0.0, float(text))
+    except ValueError:
+        pass
+    try:
+        from datetime import datetime, timezone
+
+        when = parsedate_to_datetime(text)
+        return max(0.0, (when - datetime.now(timezone.utc)).total_seconds())
+    except Exception:
+        return None
 
 
 class RetryPolicy:
@@ -36,12 +75,9 @@ class RetryPolicy:
                 sleep = base_delay * (8 if long_backoff else 2) ** attempt + random.uniform(
                     0, 1
                 )
-                requested = getattr(exc, "headers", {}).get("Retry-After")
-                if requested:
-                    try:
-                        sleep = max(sleep, float(requested))
-                    except ValueError:
-                        pass
+                requested = _retry_after_seconds(exc)
+                if requested is not None:
+                    sleep = max(sleep, requested)
                 label = "high-demand outage" if long_backoff else "429 rate limit"
                 self._emit(
                     f"{prefix} ⏳ {label}, retry {attempt + 1}/{max_retries} in {sleep:.1f}s"

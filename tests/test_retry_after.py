@@ -86,3 +86,18 @@ def test_none_headers_is_safe():
 def test_non_mapping_headers_is_safe():
     sleeps = run_with(lambda: _Fake429("<html>no headers here</html>"))
     assert sleeps[0] == 0.1
+
+
+def test_http_date_form_is_honored():
+    from email.utils import format_datetime
+    from datetime import datetime, timedelta, timezone
+
+    when = datetime.now(timezone.utc) + timedelta(seconds=30)
+    sleeps = run_with(lambda: _Fake429({"Retry-After": format_datetime(when)}))
+    assert len(sleeps) == 1
+    assert 20 <= sleeps[0] <= 31
+
+
+def test_malformed_http_date_is_safe():
+    sleeps = run_with(lambda: _Fake429({"Retry-After": "Wed, 99 Hex 2026 99:99:99 FOO"}))
+    assert sleeps[0] == 0.1
