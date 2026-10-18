@@ -71,6 +71,10 @@ def ok_impl(endpoint, input):
     return [f"https://example.com/{input['prompt']}.png"]
 
 
+def statuses_of(results):
+    return [r.status for r in results]
+
+
 def _run_engine_n(profile, out_dir, impl, n=3, probe=False, progress_calls=None):
     mock_replicate = MagicMock()
     mock_client = MagicMock()
@@ -238,6 +242,55 @@ class TestParallelRunner:
         assert len(results) <= 2
         assert set(called) <= {"p0", "p1"}
         assert "p2" not in called and "p5" not in called
+
+    def test_fatal_stop_releases_in_flight_sibling_deterministic(self, tmp_path):
+        import engine_replicate.runner as rm
+
+        called = []
+        lock = threading.Lock()
+        p1_started = threading.Event()
+        p1_may_finish = threading.Event()
+
+        real_halt = rm.BatchState.halt
+
+        def instrumented_halt(self):
+            real_halt(self)
+            p1_may_finish.set()
+
+        rm.BatchState.halt = instrumented_halt
+        try:
+            def impl(endpoint, input):
+                with lock:
+                    called.append(input["prompt"])
+                if input["prompt"] == "p0":
+                    assert p1_started.wait(5), "p1 must start before p0 halts"
+                    raise _FakeError(status=402, detail="Payment required")
+                if input["prompt"] == "p1":
+                    p1_started.set()
+                    assert p1_may_finish.wait(5), "sibling released only after halt"
+                    return [f"https://example.com/{input['prompt']}.png"]
+                time.sleep(_HOLD)
+                return [f"https://example.com/{input['prompt']}.png"]
+
+            results, _, _ = _run_engine_n(
+                self._parallel_profile(concurrency=2, retry_on_429=0),
+                tmp_path,
+                impl,
+                n=6,
+                probe=True,
+            )
+        finally:
+            rm.BatchState.halt = real_halt
+
+        assert statuses_of(results) == ["error", "ok"]
+        assert "-b1-1." in results[1].path.name
+        assert results[0].error_msg == "Payment required"
+
+    def test_fatal_stops_are_deterministic_under_repetition(self, tmp_path):
+        for attempt in range(5):
+            self.test_fatal_stop_releases_in_flight_sibling_deterministic(
+                tmp_path / f"rep{attempt}"
+            )
 
     def test_circuit_breaker_never_starts_queued_items(self, tmp_path):
         called = []
