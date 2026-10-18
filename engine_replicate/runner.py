@@ -17,6 +17,7 @@ import threading
 import time
 
 from .datatypes import OutputFile
+from .engine import _error_metadata, _output_stem, _write_error_log
 
 
 class BatchState:
@@ -54,34 +55,57 @@ def run_item(engine, client, item, idx, total, state) -> list[OutputFile]:
     dest_dir = engine._output_dir / rel_dir if rel_dir else engine._output_dir
     ts = engine._now_string()
     ext = engine._default_extension(media_type)
-    expected = dest_dir / f"{ts}-{stem}-{idx}{ext}"
+    base = _output_stem(stem, ts)
+    expected = dest_dir / f"{base}-{idx}{ext}"
 
     engine._emit(f"{prefix} 📡 Calling {engine.PROVIDER_NAME} API...")
     prompt = f"{engine._prefix}{item.prompt}{engine._suffix}".strip()
+    failure_context = {
+        "dest_dir": dest_dir,
+        "base": base,
+        "idx": idx,
+        "item": item,
+        "current": current,
+        "total": total,
+        "profile": engine._profile,
+        "platform": engine.PLATFORM,
+        "prompt": prompt,
+        "expected": expected,
+    }
     if not prompt:
+        empty_prompt_msg = "Empty prompt after applying prefix/suffix"
+        log_path = _write_error_log(
+            **failure_context,
+            stage="empty_prompt",
+            error_msg=empty_prompt_msg,
+        )
         return [
             OutputFile(
                 source_path=item.path,
                 status="error",
-                error_msg="Empty prompt after applying prefix/suffix",
+                error_msg=empty_prompt_msg,
                 media_type=media_type,
                 expected_path=expected,
+                metadata=_error_metadata(log_path),
             )
         ]
 
     engine._emit(f"{prefix} 📝 Markdown: {item.path.name}")
 
     provider_input: dict | None = None
+    stage = "build_input"
     try:
         provider_input = engine._build_replicate_input(
             dict(engine._profile.get("parameters", {})), prompt, item, media_type
         )
+        stage = "provider_call"
         raw_output = engine._request_with_retry(
             client, engine._profile["endpoint"], provider_input, prefix
         )
         engine._emit(f"{prefix} ✅ Response received")
         engine._emit(f"{prefix} 📦 Payload: {provider_input}")
 
+        stage = "save"
         saved = engine._save_results(
             raw_output,
             media_type,
@@ -94,13 +118,21 @@ def run_item(engine, client, item, idx, total, state) -> list[OutputFile]:
             provider_input,
         )
         if not saved:
+            no_output_msg = "No output returned from replicate"
+            log_path = _write_error_log(
+                **failure_context,
+                stage="no_output",
+                payload=provider_input,
+                error_msg=no_output_msg,
+            )
             return [
                 OutputFile(
                     source_path=item.path,
                     status="error",
-                    error_msg="No output returned from replicate",
+                    error_msg=no_output_msg,
                     media_type=media_type,
                     expected_path=expected,
+                    metadata=_error_metadata(log_path),
                 )
             ]
         state.note_success()
@@ -122,12 +154,20 @@ def run_item(engine, client, item, idx, total, state) -> list[OutputFile]:
             total=total,
             api_payload=provider_input,
         )
+        log_path = _write_error_log(
+            **failure_context,
+            stage=stage,
+            payload=provider_input,
+            error=exc,
+            error_msg=f"{type(exc).__name__}: {exc}",
+        )
         output = OutputFile(
             source_path=item.path,
             status="error",
             error_msg=str(exc),
             media_type=media_type,
             expected_path=expected,
+            metadata=_error_metadata(log_path),
         )
         if engine._is_fatal(exc):
             engine._emit(

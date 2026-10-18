@@ -9,6 +9,8 @@ them through inheritance).
 from typing import Any
 from .datatypes import EngineError
 
+_URL_LIST_SLOT_SUFFIXES = ("_urls", "_images", "_videos", "_audios")
+
 
 class InputBuilder:
     def _build_replicate_input(
@@ -129,4 +131,9 @@ class InputBuilder:
                     f"were provided — fix the markdown: {urls}"
                 )
             return urls[0]
+        declared_slots = self._profile.get("slots") or []
+        if param_type is None and key in declared_slots and key.endswith(
+            _URL_LIST_SLOT_SUFFIXES
+        ):
+            return urls
         return urls[0] if len(urls) == 1 else urls

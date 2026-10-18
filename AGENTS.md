@@ -24,6 +24,10 @@ discover this Engine, load it via `engine_loader.py`, and call
 - **Error results carry `expected_path`**: the destination filename is
   precomputed BEFORE the API call (profile `output_format`/media default
   extension) so Generators can write error placeholders at the exact name.
+- **Every per-item failure writes a verbose `<base>-<idx>_ERROR.log`** beside
+  the would-be output (provider exception, empty-prompt skip, "no output
+  returned", save/download failure — independent of any logging flag); the
+  error result names the written file as `metadata["error_log"]`.
 - **`EngineError`** is for unrecoverable pre-flight failures only: missing
   API key, invalid profile, provider auth rejection.
 - **`datatypes.py`** defines InputFile, OutputFile, ProgressEvent,
@@ -120,6 +124,32 @@ Full contract: `~/Nextcloud/00-DEVELOPMENT/MISC_DEV_TOOLS/studiolot/docs/archite
 
 ### Session History
 
+- 2026-10-15 — Schema-less reference slots stay arrays; client timeouts retryable
+  - `_coerce_media_value()` keeps a single URL as a list for profile-declared
+    reference-list slots (`reference_image_urls`, `reference_images`, …) even
+    when the endpoint exposes no openapi schema (`minimax/h3` 422: expected
+    array, given string); single-image slots (`first_frame_image`,
+    `last_frame_image`) keep the string fallback.
+  - `_classify_error()` treats client timeouts (httpx `TimeoutException`,
+    builtin `TimeoutError`) as `retryable` — cold-start read timeouts retry
+    instead of failing the item; the retry line says "request timeout".
+  - Tests: schema-less coercion + timeout classification cases; 110 green.
+
+- 2026-10-15 — Per-item error logs on every failure (`<base>-<idx>_ERROR.log`)
+  - Every failure branch of `Engine.run()` — provider exception, empty-prompt
+    skip, "no output returned", save/download failure — now writes a verbose
+    log to the item's destination dir (created if missing), named with the
+    same `_output_stem` base as the would-be output and the 0-based idx. The
+    error result carries `metadata["error_log"]`.
+  - Content: title / `when:` ISO local / `item:` i of n / source / dest dir /
+    expected / platform / endpoint / profile JSON / duration raw+effective+fps
+    / media (primary + every slot) / exact final prompt / `error stage:`
+    (`build_input` | `provider_call` | `save` | `no_output` | `empty_prompt`) /
+    `error:` type+message / full traceback / request payload JSON / note.
+    Key-like values (`r8_…`, `api_key`/`token`/`secret` fields) are masked;
+    no environment dumps. Writing is best-effort — it never masks the real
+    failure.
+  - 7 new failure-path tests (`TestErrorLog`); 104 green.
 - 2026-09-05 — Error events carry the API payload
   - `Engine.run()` declares `replicate_input` before the try block and
     attaches it to error progress events (`api_payload=`), so a failed API
