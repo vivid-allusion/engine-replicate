@@ -5,8 +5,8 @@ pre-split gold engine (`check_schema_sync` and the generators keep using
 them through inheritance).
 """
 
-import importlib
 
+from typing import Any
 from .datatypes import EngineError
 
 

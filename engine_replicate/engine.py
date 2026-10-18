@@ -4,7 +4,6 @@ import urllib.request
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 from .datatypes import EngineError, InputFile, OutputFile, ProgressEvent
 from .input_builder import InputBuilder
