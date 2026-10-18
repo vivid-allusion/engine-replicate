@@ -1,14 +1,15 @@
 """N-in-flight execution for the gold engine.
 
-`run_batch` caps in-flight jobs structurally: ThreadPoolExecutor's
-max_workers equals the profile's `concurrency`, so more than N jobs can
-never run at once. Per-item behaviour reuses the engine's existing
-machinery verbatim (`_build_replicate_input`, `_request_with_retry`,
-`_save_results`, error classification) — the same retry, backoff and
-circuit-breaker semantics as the sequential loop. Results come back in
-input order; a failing item never disturbs jobs still in flight; once a
-fatal error or the breaker ends the batch, no new submissions start and
-in-flight jobs run to completion.
+`run_batch` caps jobs in flight structurally: it keeps at most the
+profile's `concurrency` futures submitted at any moment. Per-item
+behaviour reuses the engine's existing machinery verbatim
+(`_build_replicate_input`, `_request_with_retry`, `_save_results`, error
+classification) — the same retry, backoff and circuit-breaker semantics
+as the sequential loop. Results are written by input index, so order
+matches the sequential loop. A failing item never disturbs jobs still in
+flight; once a fatal error or the breaker ends the batch, no queued
+item is submitted — already-in-flight jobs run to completion and are
+collected.
 """
 
 import concurrent.futures
@@ -22,13 +23,21 @@ from .datatypes import OutputFile
 class BatchState:
     def __init__(self, circuit_max: int):
         self.circuit_max = circuit_max
-        self.stop = False
         self.consecutive_conflicts = 0
         self._lock = threading.Lock()
+        self._stop = False
+
+    def is_stopped(self) -> bool:
+        with self._lock:
+            return self._stop
+
+    def halt(self):
+        with self._lock:
+            self._stop = True
 
     def note_success(self):
         with self._lock:
-            if not self.stop:
+            if not self._stop:
                 self.consecutive_conflicts = 0
 
     def note_rate_limited(self) -> bool:
@@ -127,7 +136,7 @@ def run_item(engine, client, item, idx, total, state) -> list[OutputFile]:
                 f"Check payment, quota, or API key. ({exc})",
                 level="error",
             )
-            state.stop = True
+            state.halt()
             return [output]
         if engine._is_rate_limited(exc):
             tripped = state.note_rate_limited()
@@ -138,7 +147,7 @@ def run_item(engine, client, item, idx, total, state) -> list[OutputFile]:
                     f"failures — aborting batch.",
                     level="error",
                 )
-                state.stop = True
+                state.halt()
                 return [output]
         else:
             state.note_success()
@@ -154,20 +163,29 @@ def run_batch(engine, inputs) -> list[OutputFile]:
     total = len(inputs)
     state = BatchState(int(engine._profile.get("circuit_breaker_max", 3)))
     results: list[list[OutputFile] | None] = [None] * total
-
+    inflight_cap = max(1, engine._concurrency)
     delay = float(engine._profile.get("delay_between_requests", 0.0))
 
-    with concurrent.futures.ThreadPoolExecutor(
-        max_workers=max(1, engine._concurrency)
-    ) as pool:
-        futures = []
-        for idx, item in enumerate(inputs):
-            if state.stop:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=inflight_cap) as pool:
+        pending: dict[concurrent.futures.Future, int] = {}
+        next_idx = 0
+        while pending or (next_idx < total and not state.is_stopped()):
+            while (
+                not state.is_stopped()
+                and next_idx < total
+                and len(pending) < inflight_cap
+            ):
+                if next_idx > 0 and delay > 0:
+                    time.sleep(delay)
+                future = pool.submit(
+                    run_item, engine, client, inputs[next_idx], next_idx, total, state
+                )
+                pending[future] = next_idx
+                next_idx += 1
+            if not pending:
                 break
-            if idx > 0 and delay > 0:
-                time.sleep(delay)
-            futures.append((idx, pool.submit(run_item, engine, client, item, idx, total, state)))
-        for idx, future in futures:
-            results[idx] = future.result()
+            done, _ = concurrent.futures.wait(pending, return_when="FIRST_COMPLETED")
+            for future in done:
+                results[pending.pop(future)] = future.result()
 
     return [out for item in results if item is not None for out in item]
