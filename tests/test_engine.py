@@ -882,4 +882,3 @@ class TestCircutBreakerAndFatalAbort:
                 assert len(results) == 1
                 assert results[0].status == "error"
                 assert mock_client.run.call_count == 1
-
