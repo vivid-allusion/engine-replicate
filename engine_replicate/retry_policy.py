@@ -78,7 +78,12 @@ class RetryPolicy:
                 requested = _retry_after_seconds(exc)
                 if requested is not None:
                     sleep = max(sleep, requested)
-                label = "high-demand outage" if long_backoff else "429 rate limit"
+                if long_backoff:
+                    label = "high-demand outage"
+                elif self._is_timeout(exc):
+                    label = "request timeout"
+                else:
+                    label = "429 rate limit"
                 self._emit(
                     f"{prefix} ⏳ {label}, retry {attempt + 1}/{max_retries} in {sleep:.1f}s"
                 )
@@ -114,6 +119,8 @@ class RetryPolicy:
             for token in ("ratelimit", "rate limit", "throttl", "too many")
         ):
             return "retryable"
+        if cls._is_timeout(exc):
+            return "retryable"
         return "other"
 
     @staticmethod
@@ -129,6 +136,18 @@ class RetryPolicy:
                 "service unavailable",
             )
         )
+
+    @staticmethod
+    def _is_timeout(exc: Exception) -> bool:
+        """Client-side timeouts (cold model starts) — retryable, never fatal."""
+        if isinstance(exc, TimeoutError):
+            return True
+        try:
+            import httpx
+
+            return isinstance(exc, httpx.TimeoutException)
+        except ImportError:
+            return False
 
     def _is_rate_limited(self, exc: Exception) -> bool:
         return self._classify_error(exc) == "retryable"

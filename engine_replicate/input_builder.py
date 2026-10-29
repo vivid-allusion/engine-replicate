@@ -10,6 +10,12 @@ from typing import Any
 from .datatypes import EngineError
 
 
+# Reference-list slot shapes: even when the endpoint exposes no live schema
+# (e.g. minimax/h3), a single URL routed to one of these slots must stay an
+# array — providers 422 on a string. Single-image slots (…_image) never match.
+_URL_LIST_SLOT_SUFFIXES = ("_urls", "_images", "_videos", "_audios")
+
+
 class InputBuilder:
     def _build_replicate_input(
         self, params: dict, prompt: str, item, media_type: str
@@ -116,6 +122,21 @@ class InputBuilder:
         return value
 
     def _coerce_media_value(self, key: str, urls: list[str]) -> str | list[str]:
+        """Shape URLs for a media parameter against the model's schema.
+
+        String-typed params (start_image, end_image, image, ...) receive a
+        single URL; array-typed params (reference_images, ...) receive the
+        full list. When the schema is unknown, a profile-declared
+        reference-list slot (``reference_image_urls``, ``reference_images``,
+        ...) still receives the full list — a single URL sent as a string is a
+        provider 422 (minimax/h3). Other params keep the historical fallback:
+        a single URL degrades to a string, multiple URLs stay a list.
+
+        Raises:
+            EngineError: multiple URLs routed to a string-typed param — the
+                provider can only accept one, so the extra media must never
+                be silently dropped.
+        """
         if not urls:
             return []
         param = self._input_props().get(key, {})
@@ -129,4 +150,9 @@ class InputBuilder:
                     f"were provided — fix the markdown: {urls}"
                 )
             return urls[0]
+        declared_slots = self._profile.get("slots") or []
+        if param_type is None and key in declared_slots and key.endswith(
+            _URL_LIST_SLOT_SUFFIXES
+        ):
+            return urls
         return urls[0] if len(urls) == 1 else urls

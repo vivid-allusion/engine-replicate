@@ -474,6 +474,87 @@ class TestExpectedPath:
         assert errors[0].api_payload["prompt"] == "test"
 
 
+class TestOutputNaming:
+    """An embedded timestamp in the stem is replaced, never double-dated.
+
+    A bullet reused across runs (its filename already carries
+    ``YYMMDD_HHMMSS``) keeps one date in the output name; stems without one
+    keep the historical ``{ts}-{stem}`` prepend.
+    """
+
+    STEM = "0099_261014_125811-81_rw-80-1-0"
+    TS = "261015_150435"
+    NAMED = "0099_261015_150435-81_rw-80-1-0"
+
+    def _run_pinned(self, tmp_path, source_name: str, output=None, error: str | None = None):
+        """Run one bullet with ``datetime.now()`` pinned to TS."""
+        with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
+            mock_replicate = MagicMock()
+            mock_client = MagicMock()
+            if error:
+                mock_client.run.side_effect = RuntimeError(error)
+            else:
+                mock_client.run.return_value = output
+            mock_replicate.Client.return_value = mock_client
+            with patch.dict("sys.modules", {"replicate": mock_replicate}):
+                with patch("engine_replicate.engine.datetime") as mock_dt:
+                    mock_dt.now.return_value.strftime.return_value = self.TS
+                    engine = Engine(
+                        {"endpoint": "test/model", "media_type": "image"},
+                        tmp_path,
+                    )
+                    return engine.run([InputFile(path=Path(source_name), prompt="test")])
+
+    def test_helper_replaces_first_embedded_timestamp(self):
+        from engine_replicate.engine import _output_stem
+
+        assert _output_stem(self.STEM, self.TS) == self.NAMED
+
+    def test_helper_replaces_only_the_first_of_two_timestamps(self):
+        from engine_replicate.engine import _output_stem
+
+        assert (
+            _output_stem("a_261014_125811_b_260101_090000", self.TS)
+            == "a_261015_150435_b_260101_090000"
+        )
+
+    def test_helper_prepends_without_embedded_timestamp(self):
+        from engine_replicate.engine import _output_stem
+
+        assert _output_stem("b", self.TS) == f"{self.TS}-b"
+
+    def test_saved_path_replaces_embedded_timestamp(self, tmp_path):
+        with patch("urllib.request.urlretrieve"):
+            results = self._run_pinned(
+                tmp_path, f"{self.STEM}.md", ["https://example.com/img.png"]
+            )
+        assert results[0].status == "ok"
+        assert results[0].path.name == f"{self.NAMED}-0.png"
+
+    def test_saved_path_prepends_without_embedded_timestamp(self, tmp_path):
+        with patch("urllib.request.urlretrieve"):
+            results = self._run_pinned(tmp_path, "b.md", ["https://example.com/img.png"])
+        assert results[0].status == "ok"
+        assert results[0].path.name == f"{self.TS}-b-0.png"
+
+    def test_expected_path_replaces_embedded_timestamp(self, tmp_path):
+        results = self._run_pinned(tmp_path, f"{self.STEM}.md", error="API timeout")
+        assert results[0].status == "error"
+        assert results[0].expected_path.name == f"{self.NAMED}-0.png"
+
+    def test_multi_output_suffix_kept_with_embedded_timestamp(self, tmp_path):
+        with patch("urllib.request.urlretrieve"):
+            results = self._run_pinned(
+                tmp_path,
+                f"{self.STEM}.md",
+                ["https://example.com/a.png", "https://example.com/b.png"],
+            )
+        assert [r.path.name for r in results] == [
+            f"{self.NAMED}-0_0.png",
+            f"{self.NAMED}-0_1.png",
+        ]
+
+
 class TestImports:
     def test_init_exports_all_names(self):
         from engine_replicate import (
@@ -882,3 +963,174 @@ class TestCircutBreakerAndFatalAbort:
                 assert len(results) == 1
                 assert results[0].status == "error"
                 assert mock_client.run.call_count == 1
+
+
+class TestErrorLog:
+    """Every per-item failure writes a verbose `<base>-<idx>_ERROR.log`."""
+
+    def _run(
+        self,
+        tmp_path,
+        *,
+        exc: Exception | None = None,
+        output="https://example.com/out.png",
+        prompt: str = "test",
+        profile: dict | None = None,
+        item: InputFile | None = None,
+    ):
+        with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
+            mock_replicate = MagicMock()
+            mock_client = MagicMock()
+            if exc is not None:
+                mock_client.run.side_effect = exc
+            else:
+                mock_client.run.return_value = output
+            mock_replicate.Client.return_value = mock_client
+            full_profile = {"endpoint": "test/model", "media_type": "image"}
+            full_profile.update(profile or {})
+            with patch.dict("sys.modules", {"replicate": mock_replicate}):
+                engine = Engine(full_profile, tmp_path)
+                return engine.run([item or InputFile(path=Path("b.md"), prompt=prompt)])
+
+    def test_provider_exception_writes_error_log(self, tmp_path):
+        results = self._run(tmp_path, exc=RuntimeError("API timeout"))
+        result = results[0]
+        assert result.status == "error"
+
+        log_path = Path(result.metadata["error_log"])
+        assert log_path.name == f"{result.expected_path.stem}_ERROR.log"
+        assert log_path.parent == result.expected_path.parent
+
+        content = log_path.read_text(encoding="utf-8")
+        assert content.startswith(f"{log_path.name} — generation failure")
+        assert "item: 1 of 1" in content
+        assert f"source: {Path('b.md').resolve()}" in content
+        assert f"expected: {result.expected_path.resolve()}" in content
+        assert "platform: replicate" in content
+        assert "endpoint: test/model" in content
+        assert "error stage: provider_call" in content
+        assert "error: RuntimeError: API timeout" in content
+        assert "Traceback (most recent call last):" in content
+        assert '"prompt": "test"' in content
+        assert "api payload:" in content
+
+    def test_no_output_writes_error_log(self, tmp_path):
+        results = self._run(tmp_path, output=None)
+        result = results[0]
+        assert result.status == "error"
+
+        content = Path(result.metadata["error_log"]).read_text(encoding="utf-8")
+        assert "error stage: no_output" in content
+        assert "error: No output returned from replicate" in content
+        assert "traceback: n/a" in content
+        assert '"prompt": "test"' in content
+
+    def test_empty_prompt_writes_error_log(self, tmp_path):
+        results = self._run(tmp_path, prompt="   ")
+        result = results[0]
+        assert result.status == "error"
+
+        content = Path(result.metadata["error_log"]).read_text(encoding="utf-8")
+        assert "error stage: empty_prompt" in content
+        assert "error: Empty prompt after applying prefix/suffix" in content
+        assert "traceback: n/a" in content
+        assert "api payload:\nnull" in content
+
+    def test_save_download_failure_writes_error_log(self, tmp_path):
+        with patch("urllib.request.urlretrieve", side_effect=OSError("disk full")):
+            results = self._run(tmp_path)
+        result = results[0]
+        assert result.status == "error"
+
+        content = Path(result.metadata["error_log"]).read_text(encoding="utf-8")
+        assert "error stage: save" in content
+        assert "error: OSError: disk full" in content
+        assert "Traceback (most recent call last):" in content
+
+    def test_error_log_created_in_missing_relative_dir(self, tmp_path):
+        item = InputFile(
+            path=Path("b.md"),
+            prompt="test",
+            metadata={"relative_dir": "scene1/nested"},
+        )
+        results = self._run(tmp_path, exc=RuntimeError("boom"), item=item)
+        log_path = Path(results[0].metadata["error_log"])
+        assert log_path.parent == tmp_path / "scene1" / "nested"
+        assert log_path.exists()
+
+    def test_error_log_masks_key_like_values(self, tmp_path):
+        results = self._run(
+            tmp_path,
+            exc=RuntimeError("boom r8_offendingtoken99"),
+            profile={"api_key": "r8_secretvalue123"},
+        )
+        content = Path(results[0].metadata["error_log"]).read_text(encoding="utf-8")
+        assert "r8_secretvalue123" not in content
+        assert "r8_offendingtoken99" not in content
+        assert "***MASKED***" in content
+
+    def test_success_writes_no_error_log(self, tmp_path):
+        with patch("urllib.request.urlretrieve"):
+            results = self._run(tmp_path)
+        assert results[0].status == "ok"
+        assert results[0].metadata.get("error_log") is None
+        assert list(tmp_path.glob("*_ERROR.log")) == []
+
+
+class TestSchemaLessMediaCoercion:
+    """minimax/h3 exposes no openapi schema: reference-list slots stay arrays."""
+
+    def _engine(self, tmp_path, slots):
+        eng = Engine(
+            profile={
+                "endpoint": "minimax/h3",
+                "image_url_param": "first_frame_image",
+                "slots": slots,
+            },
+            output_dir=tmp_path,
+        )
+        eng._input_props_cache = {}  # force the schema-unavailable path, no network
+        return eng
+
+    def test_single_url_reference_image_urls_stays_list(self, tmp_path):
+        eng = self._engine(tmp_path, ["last_frame_image", "reference_image_urls"])
+        assert eng._coerce_media_value(
+            "reference_image_urls", ["https://example.com/1.png"]
+        ) == ["https://example.com/1.png"]
+
+    def test_single_url_reference_images_stays_list(self, tmp_path):
+        eng = self._engine(tmp_path, ["reference_images"])
+        assert eng._coerce_media_value(
+            "reference_images", ["https://example.com/1.png"]
+        ) == ["https://example.com/1.png"]
+
+    def test_single_url_single_image_slots_stay_strings(self, tmp_path):
+        eng = self._engine(tmp_path, ["last_frame_image", "reference_image_urls"])
+        assert (
+            eng._coerce_media_value("first_frame_image", ["https://example.com/1.png"])
+            == "https://example.com/1.png"
+        )
+        assert (
+            eng._coerce_media_value("last_frame_image", ["https://example.com/1.png"])
+            == "https://example.com/1.png"
+        )
+
+    def test_undeclared_urls_key_keeps_legacy_fallback(self, tmp_path):
+        eng = self._engine(tmp_path, ["reference_image_urls"])
+        assert (
+            eng._coerce_media_value("other_urls", ["https://example.com/1.png"])
+            == "https://example.com/1.png"
+        )
+
+
+class TestTimeoutRetryability:
+    def test_httpx_read_timeout_is_retryable_and_not_fatal(self, tmp_path):
+        import httpx
+
+        exc = httpx.ReadTimeout("read timed out")
+        assert Engine._classify_error(exc) == "retryable"
+        eng = Engine(profile={}, output_dir=tmp_path)
+        assert eng._is_fatal(exc) is False
+
+    def test_builtin_timeout_error_is_retryable(self):
+        assert Engine._classify_error(TimeoutError("timed out")) == "retryable"

@@ -97,3 +97,7 @@ engine-replicate/
 ```
 
 See `docs/architecture/ENGINE_CONTRACT.md` §6a in studiolot.
+
+## License
+
+MIT, see [LICENSE](LICENSE).

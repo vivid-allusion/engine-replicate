@@ -1,5 +1,8 @@
 import importlib
+import json
+import re
 import time
+import traceback
 import urllib.request
 from collections.abc import Callable
 from datetime import datetime
@@ -8,6 +11,146 @@ from pathlib import Path
 from .datatypes import EngineError, InputFile, OutputFile, ProgressEvent
 from .input_builder import InputBuilder
 from .retry_policy import RetryPolicy
+
+_EMBEDDED_TIMESTAMP_RE = re.compile(r"(?<![0-9])[0-9]{6}_[0-9]{6}(?![0-9])")
+
+# Reference-list slot shapes: even when the endpoint exposes no live schema
+# (e.g. minimax/h3), a single URL routed to one of these slots must stay an
+# array — providers 422 on a string. Single-image slots (…_image) never match.
+_URL_LIST_SLOT_SUFFIXES = ("_urls", "_images", "_videos", "_audios")
+
+_MASKED = "***MASKED***"
+_KEY_LIKE_RE = re.compile(r"\br8_[A-Za-z0-9]{4,}\b")
+_SECRET_FIELD_RE = re.compile(
+    r'("[^"]*(?:api[_-]?key|token|secret|password|authorization)[^"]*"\s*:\s*)"[^"]*"',
+    re.IGNORECASE,
+)
+
+
+def _output_stem(stem: str, ts: str) -> str:
+    """Name the output file after its source stem and the generation timestamp.
+
+    When the stem already embeds a ``YYMMDD_HHMMSS`` timestamp, the first
+    occurrence is replaced in place with ``ts`` — re-running the same bullet
+    keeps one date in the name instead of stacking a second one. Stems
+    without an embedded timestamp keep the historical ``{ts}-{stem}``
+    prepend.
+    """
+    replaced, count = _EMBEDDED_TIMESTAMP_RE.subn(ts, stem, count=1)
+    return replaced if count else f"{ts}-{stem}"
+
+
+def _mask_key_like(text: str) -> str:
+    """Hide API-key-like values so an error log never leaks credentials."""
+    text = _KEY_LIKE_RE.sub(_MASKED, text)
+    return _SECRET_FIELD_RE.sub(rf'\g<1>"{_MASKED}"', text)
+
+
+def _json_block(value: Any) -> str:
+    """Pretty, secret-masked JSON for the error log (``null`` for None)."""
+    if value is None:
+        return "null"
+    return _mask_key_like(json.dumps(value, indent=2, ensure_ascii=False, default=str))
+
+
+def _display(value: Any) -> str:
+    return "n/a" if value is None else str(value)
+
+
+def _error_metadata(log_path: Path | None) -> dict:
+    """Metadata attached to a failed result, naming its error log."""
+    return {"error_log": str(log_path)} if log_path else {}
+
+
+def _media_lines(item: InputFile) -> list[str]:
+    """Primary URLs, then every reference slot, one URL per line."""
+    lines = ["  primary:"]
+    if item.reference_urls:
+        lines.extend(f"    {url}" for url in item.reference_urls)
+    else:
+        lines.append("    (none)")
+    for slot, urls in item.references.items():
+        lines.append(f"  slot {slot}:")
+        if urls:
+            lines.extend(f"    {url}" for url in urls)
+        else:
+            lines.append("    (none)")
+    return lines
+
+
+def _write_error_log(
+    *,
+    dest_dir: Path,
+    base: str,
+    idx: int,
+    item: InputFile,
+    current: int,
+    total: int,
+    profile: dict,
+    platform: str,
+    prompt: str,
+    expected: Path | None,
+    stage: str,
+    payload: dict | None = None,
+    error: BaseException | None = None,
+    error_msg: str = "",
+) -> Path | None:
+    """Write a verbose ``<base>-<idx>_ERROR.log`` beside the would-be output.
+
+    Called on every per-item failure — provider exception, empty-prompt skip,
+    "no output returned", save/download failure — independent of any logging
+    flag. Best-effort: when the log itself cannot be written the caller's
+    error result still reports the failure, so this never raises.
+    """
+    try:
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        path = dest_dir / f"{base}-{idx}_ERROR.log"
+
+        duration_raw = item.metadata.get("duration")
+        duration_key = str(profile.get("duration_param_name", "duration"))
+        duration_effective = (
+            payload.get(duration_key, duration_raw) if payload is not None else duration_raw
+        )
+        fps = item.metadata.get("fps", (profile.get("parameters") or {}).get("fps"))
+
+        lines = [
+            f"{path.name} — generation failure",
+            f"when: {datetime.now().astimezone().isoformat()}",
+            f"item: {current} of {total}",
+            f"source: {Path(item.path).resolve()}",
+            f"dest dir: {dest_dir.resolve()}",
+            f"expected: {expected.resolve() if expected is not None else 'n/a'}",
+            f"platform: {platform}",
+            f"endpoint: {profile.get('endpoint', '')}",
+            "profile:",
+            _json_block(profile),
+            f"duration: raw={_display(duration_raw)} "
+            f"effective={_display(duration_effective)} fps={_display(fps)}",
+            "media:",
+            *_media_lines(item),
+            f"prompt: {prompt if prompt else '(empty)'}",
+            f"error stage: {stage}",
+            f"error: {error_msg or 'n/a'}",
+        ]
+        if error is not None:
+            lines.append("traceback:")
+            lines.append(
+                "".join(
+                    traceback.format_exception(type(error), error, error.__traceback__)
+                ).rstrip()
+            )
+        else:
+            lines.append("traceback: n/a")
+        lines += [
+            "api payload:",
+            _json_block(payload),
+            "note: Written automatically on a failed generation — see the "
+            "office/MEMORY error-log convention.",
+        ]
+        path.write_text(_mask_key_like("\n".join(lines)) + "\n", encoding="utf-8")
+        return path
+    except Exception:
+        return None
 
 
 class Engine(InputBuilder, RetryPolicy):
@@ -62,7 +205,8 @@ class Engine(InputBuilder, RetryPolicy):
             dest_dir = self._output_dir / rel_dir if rel_dir else self._output_dir
             ts = datetime.now().strftime("%y%m%d_%H%M%S")
             ext = self._default_extension(media_type)
-            expected = dest_dir / f"{ts}-{stem}-{idx}{ext}"
+            base = _output_stem(stem, ts)
+            expected = dest_dir / f"{base}-{idx}{ext}"
 
             delay = float(self._profile.get("delay_between_requests", 0.0))
             if idx > 0 and delay > 0:
@@ -70,13 +214,32 @@ class Engine(InputBuilder, RetryPolicy):
 
             self._emit(f"{prefix} 📡 Calling Replicate API...")
             prompt = f"{self._prefix}{item.prompt}{self._suffix}".strip()
+            failure_context = {
+                "dest_dir": dest_dir,
+                "base": base,
+                "idx": idx,
+                "item": item,
+                "current": current,
+                "total": total,
+                "profile": self._profile,
+                "platform": self.PLATFORM,
+                "prompt": prompt,
+                "expected": expected,
+            }
             if not prompt:
+                empty_prompt_msg = "Empty prompt after applying prefix/suffix"
+                log_path = _write_error_log(
+                    **failure_context,
+                    stage="empty_prompt",
+                    error_msg=empty_prompt_msg,
+                )
                 output = OutputFile(
                     source_path=item.path,
                     status="error",
-                    error_msg="Empty prompt after applying prefix/suffix",
+                    error_msg=empty_prompt_msg,
                     media_type=media_type,
                     expected_path=expected,
+                    metadata=_error_metadata(log_path),
                 )
                 results.append(output)
                 continue
@@ -84,16 +247,19 @@ class Engine(InputBuilder, RetryPolicy):
             self._emit(f"{prefix} 📝 Markdown: {item.path.name}")
 
             replicate_input: dict | None = None
+            stage = "build_input"
             try:
                 replicate_input = self._build_replicate_input(
                     params, prompt, item, media_type
                 )
+                stage = "provider_call"
                 raw_output = self._request_with_retry(
                     client, endpoint, replicate_input, prefix
                 )
                 self._emit(f"{prefix} ✅ Response received")
                 self._emit(f"{prefix} 📦 Payload: {replicate_input}")
 
+                stage = "save"
                 saved = self._save_results(
                     raw_output,
                     media_type,
@@ -106,12 +272,20 @@ class Engine(InputBuilder, RetryPolicy):
                     replicate_input,
                 )
                 if not saved:
+                    no_output_msg = "No output returned from replicate"
+                    log_path = _write_error_log(
+                        **failure_context,
+                        stage="no_output",
+                        payload=replicate_input,
+                        error_msg=no_output_msg,
+                    )
                     output = OutputFile(
                         source_path=item.path,
                         status="error",
-                        error_msg="No output returned from replicate",
+                        error_msg=no_output_msg,
                         media_type=media_type,
                         expected_path=expected,
+                        metadata=_error_metadata(log_path),
                     )
                 else:
                     consecutive_conflicts = 0
@@ -135,12 +309,20 @@ class Engine(InputBuilder, RetryPolicy):
                     total=total,
                     api_payload=replicate_input,
                 )
+                log_path = _write_error_log(
+                    **failure_context,
+                    stage=stage,
+                    payload=replicate_input,
+                    error=exc,
+                    error_msg=f"{type(exc).__name__}: {exc}",
+                )
                 output = OutputFile(
                     source_path=item.path,
                     status="error",
                     error_msg=str(exc),
                     media_type=media_type,
                     expected_path=expected,
+                    metadata=_error_metadata(log_path),
                 )
                 # A billing/auth failure will reject every remaining item —
                 # stop the batch instead of churning through all of them.
@@ -228,13 +410,14 @@ class Engine(InputBuilder, RetryPolicy):
         dest_dir.mkdir(parents=True, exist_ok=True)
 
         ts = datetime.now().strftime("%y%m%d_%H%M%S")
+        named_stem = _output_stem(stem, ts)
         saved = []
         for i, item in enumerate(raw_output):
             if isinstance(item, str):
                 self._emit(f"{prefix} ⬇️  Downloading...")
                 ext = self._infer_extension(item, media_type)
                 suffix = "" if len(raw_output) == 1 else f"_{i}"
-                dest = dest_dir / f"{ts}-{stem}-{idx}{suffix}{ext}"
+                dest = dest_dir / f"{named_stem}-{idx}{suffix}{ext}"
                 urllib.request.urlretrieve(item, dest)
                 self._emit(
                     f"{prefix} 💾 Saved: {dest.name}",
@@ -249,7 +432,7 @@ class Engine(InputBuilder, RetryPolicy):
                 data = item.read()
                 ext = self._sniff_extension(data, media_type)
                 suffix = "" if len(raw_output) == 1 else f"_{i}"
-                dest = dest_dir / f"{ts}-{stem}-{idx}{suffix}{ext}"
+                dest = dest_dir / f"{named_stem}-{idx}{suffix}{ext}"
                 with open(dest, "wb") as f:
                     f.write(data)
                 self._emit(
