@@ -1,20 +1,26 @@
-# Wan 2.7 Image — 16:9 · 1K
 platform: replicate
-endpoint: wan-video/wan-2.7-image
 media_type: image
-concurrency: 1
+endpoint: wan-video/wan-2.7-image
+description: Wan 2.7 Image — 16:9 · 1K
+# primary reference images are sent to this endpoint input
 reference_param: images
 parameters:
+  # size:
+  #   "1K" | "2K" | "1024*1024" | "2048*2048" | "1280*720" | "720*1280" | "2048*1152"
+  #   "1152*2048" | "1024*768" | "768*1024" | "2048*1536" | "1536*2048"
   size: "1K"
+  # num_outputs: 1 to 4
   num_outputs: 1
+  # image_set_mode: true | false
   image_set_mode: false
+  # thinking_mode: true | false
   thinking_mode: true
-  # Advanced parameters (uncomment to use)
-  #seed: -1
+  # seed: -1 to 2147483647
+  seed: -1
+prompt_prefix: ""
+prompt_suffix: ""
+
+# price per image, used by --cost-estimation
 pricing:
   base_cost: 0.005
   currency: USD
-
-# Prompt modifications (uncomment to use)
-#prompt_prefix: ''
-#prompt_suffix: ''

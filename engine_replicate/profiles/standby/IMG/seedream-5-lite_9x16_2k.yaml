@@ -1,20 +1,23 @@
-# Seedream 5 Lite — 9:16 · 2K
 platform: replicate
-endpoint: bytedance/seedream-5-lite
 media_type: image
-concurrency: 1
+endpoint: bytedance/seedream-5-lite
+description: Seedream 5 Lite — 9:16 · 2K
 parameters:
-  aspect_ratio: "9:16"
+  # size: "2K" | "3K"
   size: "2K"
+  # aspect_ratio:
+  #   "1:1" | "3:4" | "4:3" | "9:16" | "16:9" | "21:9" | "3:2" | "2:3" | "match_input_image"
+  aspect_ratio: "9:16"
+  # max_images: 1 to 15
   max_images: 1
+  # sequential_image_generation: "disabled" | "auto"
   sequential_image_generation: "disabled"
+  # output_format: "png" | "jpeg"
   output_format: "png"
-  # Advanced parameters (uncomment to use)
-  #return_byteplus_urls: false
+prompt_prefix: ""
+prompt_suffix: ""
+
+# price per image, used by --cost-estimation
 pricing:
   base_cost: 0.05
   currency: USD
-
-# Prompt modifications (uncomment to use)
-#prompt_prefix: ''
-#prompt_suffix: ''

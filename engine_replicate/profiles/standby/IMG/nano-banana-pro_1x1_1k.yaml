@@ -1,19 +1,24 @@
-# Nano Banana Pro — 1:1 · 1K
 platform: replicate
-endpoint: google/nano-banana-pro
 media_type: image
-concurrency: 1
+endpoint: google/nano-banana-pro
+description: Nano Banana Pro — 1:1 · 1K
 parameters:
+  # aspect_ratio:
+  #   "1:1" | "2:3" | "3:2" | "3:4" | "4:3" | "4:5" | "5:4" | "9:16" | "16:9" | "21:9"
+  #   "match_input_image"
   aspect_ratio: "1:1"
-  output_format: "png"
+  # resolution: "1K" | "2K" | "4K"
   resolution: "1K"
+  # output_format: "png" | "jpg"
+  output_format: "png"
+  # safety_filter_level: "block_low_and_above" | "block_medium_and_above" | "block_only_high"
   safety_filter_level: "block_only_high"
-  # Advanced parameters (uncomment to use)
-  #allow_fallback_model: false
+  # allow_fallback_model: true | false
+  allow_fallback_model: false
+prompt_prefix: ""
+prompt_suffix: ""
+
+# price per image, used by --cost-estimation
 pricing:
   base_cost: 0.14
   currency: USD
-
-# Prompt modifications (uncomment to use)
-#prompt_prefix: ''
-#prompt_suffix: ''

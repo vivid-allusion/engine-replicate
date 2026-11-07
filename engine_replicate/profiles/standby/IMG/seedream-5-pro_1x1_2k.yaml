@@ -1,0 +1,21 @@
+platform: replicate
+media_type: image
+endpoint: bytedance/seedream-5-pro
+description: Seedream 5 Pro — 1:1 · 2K
+parameters:
+  # size: "1K" | "1.5K" | "2K" | "auto"
+  size: "2K"
+  # aspect_ratio:
+  #   "1:1" | "4:3" | "3:4" | "16:9" | "9:16" | "3:2" | "2:3" | "21:9" | "match_input_image"
+  aspect_ratio: "1:1"
+  # output_format: "png" | "jpeg"
+  output_format: "png"
+  # layer_decomposition: true | false
+  layer_decomposition: false
+prompt_prefix: ""
+prompt_suffix: ""
+
+# price per image, used by --cost-estimation
+pricing:
+  base_cost: 0.09
+  currency: USD

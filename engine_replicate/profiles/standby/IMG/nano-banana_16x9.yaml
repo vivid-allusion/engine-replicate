@@ -1,15 +1,18 @@
-# Nano Banana — 16:9
 platform: replicate
-endpoint: google/nano-banana
 media_type: image
-concurrency: 1
+endpoint: google/nano-banana
+description: Nano Banana — 16:9
 parameters:
+  # aspect_ratio:
+  #   "1:1" | "2:3" | "3:2" | "3:4" | "4:3" | "4:5" | "5:4" | "9:16" | "16:9" | "21:9"
+  #   "match_input_image"
   aspect_ratio: "16:9"
+  # output_format: "png" | "jpg"
   output_format: "png"
+prompt_prefix: ""
+prompt_suffix: ""
+
+# price per image, used by --cost-estimation
 pricing:
   base_cost: 0.039
   currency: USD
-
-# Prompt modifications (uncomment to use)
-#prompt_prefix: ''
-#prompt_suffix: ''

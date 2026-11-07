@@ -1,23 +1,32 @@
-# Flux 2 Max — 16:9 · 2048x1152 · 4 MP
 platform: replicate
-endpoint: black-forest-labs/flux-2-max
 media_type: image
-concurrency: 1
+endpoint: black-forest-labs/flux-2-max
+description: Flux 2 Max — 16:9 · 2048x1152 · 4 MP
+# primary reference images are sent to this endpoint input
 reference_param: input_images
 parameters:
-  width: 2048
-  height: 1152
+  # aspect_ratio:
+  #   "1:1" | "2:3" | "3:2" | "3:4" | "4:3" | "4:5" | "5:4" | "9:16" | "16:9"
+  #   "match_input_image" | "custom"
   aspect_ratio: "custom"
+  # resolution: "0.5 MP" | "1 MP" | "2 MP" | "4 MP" | "match_input_image"
   resolution: "4 MP"
+  # width: 256 to 2048
+  width: 2048
+  # height: 256 to 2048
+  height: 1152
+  # output_format: "webp" | "jpg" | "png"
   output_format: "png"
+  # output_quality: 0 to 100
   output_quality: 100
+  # safety_tolerance: 1 to 5
   safety_tolerance: 5
-  # Advanced parameters (uncomment to use)
-  #seed: 0
+  # seed: 0 to 2147483647
+  seed: 0
+prompt_prefix: ""
+prompt_suffix: ""
+
+# price per image, used by --cost-estimation
 pricing:
   base_cost: 0.04
   currency: USD
-
-# Prompt modifications (uncomment to use)
-#prompt_prefix: ''
-#prompt_suffix: ''

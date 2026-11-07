@@ -1,0 +1,61 @@
+id = "seedream-5-pro"
+label = "Seedream 5.0 Pro"
+category = "IMG"
+platform = "replicate"
+endpoint = "bytedance/seedream-5-pro"
+description = "ByteDance's flagship image model: high-quality 1K and 2K images from text or up to 10 reference images, with single-sentence editing and layer decomposition."
+
+[pricing]
+base_cost = 0.09
+currency = "USD"
+note = "Per output image: 1K $0.045 · 2K $0.09"
+
+[general]
+image_url_param = "image_input"
+
+[params.size]
+label = "Resolution"
+type = "select"
+default = "2K"
+options = [
+  { value = "1K",   label = "1K (~2 megapixels) · Fast" },
+  { value = "1.5K", label = "1.5K · Layer decomposition only" },
+  { value = "2K",   label = "2K (~4 megapixels) · Standard" },
+  { value = "auto", label = "Auto · Layer decomposition only" },
+]
+note = "Standard mode supports 1K and 2K; 1.5K and auto apply only to layer decomposition"
+
+[params.aspect_ratio]
+label = "Aspect Ratio"
+type = "select"
+default = "match_input_image"
+optional = true
+options = [
+  { value = "1:1",   label = "1:1 · Square" },
+  { value = "4:3",   label = "4:3 · Classic" },
+  { value = "3:4",   label = "3:4 · Portrait" },
+  { value = "16:9",  label = "16:9 · Landscape · Standard" },
+  { value = "9:16",  label = "9:16 · Vertical" },
+  { value = "3:2",   label = "3:2 · Landscape" },
+  { value = "2:3",   label = "2:3 · Portrait" },
+  { value = "21:9",  label = "21:9 · Ultrawide · Cinematic" },
+  { value = "match_input_image", label = "Match Input Image" },
+]
+note = "Ignored in layer decomposition mode"
+
+[params.output_format]
+label = "Output Format"
+type = "select"
+default = "png"
+options = [
+  { value = "png",  label = "PNG · Lossless" },
+  { value = "jpeg", label = "JPEG" },
+]
+note = "In layer decomposition mode this controls the base image only; layers are always PNG"
+
+[params.layer_decomposition]
+label = "Layer Decomposition"
+type = "boolean"
+default = false
+hidden = true
+description = "Split a single input image into a base image plus separate element layers (up to 16). Requires exactly one input image."
