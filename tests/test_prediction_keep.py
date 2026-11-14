@@ -30,7 +30,8 @@ class Client:
         self.models = SimpleNamespace(predictions=SimpleNamespace(create=self.create))
         self.predictions = SimpleNamespace(get=self.get)
 
-    def create(self, **_):
+    def create(self, **kw):
+        assert "wait" not in kw, "create must return at once so the id is kept"
         self.creates += 1
         r = self._create.pop(0)
         if isinstance(r, Exception):
@@ -110,3 +111,12 @@ def test_limit_declared_for_all_h3_endpoints(tmp_path):
         with pytest.raises(ValueError, match="7000"):
             engine(tmp_path, endpoint=ep)._check_prompt_length("x" * 7001)
         engine(tmp_path, endpoint=ep)._check_prompt_length("x" * 7000)
+
+
+def test_numeric_text_does_not_override_a_non_5xx_status():
+    class E(Exception):
+        status = 422
+
+    exc = E("width must be <= 512")
+    assert not rp.RetryPolicy._is_server_error(exc)
+    assert rp.RetryPolicy._classify_error(exc) == "other"

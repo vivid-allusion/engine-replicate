@@ -101,12 +101,12 @@ class RetryPolicy:
         if ":" in endpoint:
             version = endpoint.split(":", 1)[1]
             create = lambda: client.predictions.create(  # noqa: E731
-                version=version, input=replicate_input, wait=True
+                version=version, input=replicate_input
             )
         else:
             owner, name = endpoint.split("/", 1)
             create = lambda: client.models.predictions.create(  # noqa: E731
-                model=(owner, name), input=replicate_input, wait=True
+                model=(owner, name), input=replicate_input
             )
         prediction = self._with_retry(create, prefix)
         urls = getattr(prediction, "urls", None) or {}
@@ -174,8 +174,8 @@ class RetryPolicy:
     def _is_server_error(exc: Exception) -> bool:
         """Any 5xx, by status or by text (502, 504, "bad gateway", ...)."""
         status = getattr(exc, "status", None)
-        if isinstance(status, int) and 500 <= status <= 599:
-            return True
+        if isinstance(status, int):
+            return 500 <= status <= 599
         text = str(exc).lower()
         return bool(re.search(r"\b5\d\d\b", text)) or any(
             t in text for t in ("bad gateway", "gateway timeout", "internal server error")
