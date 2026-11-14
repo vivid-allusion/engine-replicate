@@ -1,0 +1,43 @@
+id = "minimax-h3-lite"
+label = "MiniMax H3 Lite"
+category = "VID"
+platform = "replicate"
+endpoint = "minimax/h3-lite"
+description = "MiniMax H3 Lite: video from words alone, a start picture (and end picture), or reference pictures, clips and sounds."
+
+[general]
+image_url_param = "first_frame_image"
+duration_type = "seconds"
+duration_param_name = "duration"
+slots = ["last_frame_image", "reference_image_urls", "reference_video_urls", "reference_audio_urls"]
+
+[params.ratio]
+label = "Aspect Ratio"
+type = "select"
+default = "16:9"
+optional = true
+options = [
+  { value = "21:9", label = "21:9" },
+  { value = "16:9", label = "16:9" },
+  { value = "4:3", label = "4:3" },
+  { value = "1:1", label = "1:1" },
+  { value = "3:4", label = "3:4" },
+  { value = "9:16", label = "9:16" },
+]
+
+[params.duration]
+label = "Duration"
+type = "integer"
+default = 5
+min = 4
+max = 15
+note = "Seconds"
+
+[params.resolution]
+label = "Resolution"
+type = "select"
+default = "768P"
+options = [
+  { value = "480P", label = "480P" },
+  { value = "768P", label = "768P" },
+]
