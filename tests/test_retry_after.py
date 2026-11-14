@@ -1,5 +1,6 @@
 """Retry-After header policy — stub-only proofs (no real wait, no API)."""
 
+from fake_client import FakeClient
 import sys
 from pathlib import Path
 
@@ -47,12 +48,12 @@ def run_with(make_exception, base_delay=0.1):
         "/tmp/opencode/retry-after-test",
     )
     engine._api_key = "k"
-    mock_client = MagicMock()
+    mock_client = FakeClient()
     mock_client.run.side_effect = client_run
     with patch.object(rp.time, "sleep", log), patch.object(
         rp.random, "uniform", lambda *args, **kwargs: 0.0
     ):
-        rp.RetryPolicy._request_with_retry(engine, mock_client, "test/model", {"prompt": "p"}, "[1/1]")
+        rp.RetryPolicy._request_with_retry(engine, mock_client, "test/model", {"prompt": "p"}, "[1/1]", {})
     return log.sleeps
 
 

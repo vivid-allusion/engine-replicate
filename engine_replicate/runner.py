@@ -17,6 +17,7 @@ import threading
 import time
 
 from .datatypes import OutputFile
+from .engine import _error_metadata, _output_stem, _write_error_log
 
 
 class BatchState:
@@ -54,34 +55,47 @@ def run_item(engine, client, item, idx, total, state) -> list[OutputFile]:
     dest_dir = engine._output_dir / rel_dir if rel_dir else engine._output_dir
     ts = engine._now_string()
     ext = engine._default_extension(media_type)
-    expected = dest_dir / f"{ts}-{stem}-{idx}{ext}"
+    base = _output_stem(stem, ts)
+    expected = dest_dir / f"{base}-{idx}{ext}"
 
     engine._emit(f"{prefix} 📡 Calling {engine.PROVIDER_NAME} API...")
     prompt = f"{engine._prefix}{item.prompt}{engine._suffix}".strip()
+    provider_input: dict | None = None
+    made: dict = {}
+    stage = "build_input"
+
+    def fail(msg, **kw):
+        log_path = _write_error_log(
+            dest_dir=dest_dir, base=base, idx=idx, item=item, current=current,
+            total=total, profile=engine._profile, platform=engine.PLATFORM,
+            prompt=prompt, expected=expected, payload=provider_input,
+            prediction=made, error_msg=msg, **kw,
+        )  # fmt: skip
+        engine._note_lost(made)
+        return OutputFile(
+            source_path=item.path, status="error", error_msg=msg,
+            media_type=media_type, expected_path=expected,
+            metadata=_error_metadata(log_path),
+        )  # fmt: skip
+
     if not prompt:
-        return [
-            OutputFile(
-                source_path=item.path,
-                status="error",
-                error_msg="Empty prompt after applying prefix/suffix",
-                media_type=media_type,
-                expected_path=expected,
-            )
-        ]
+        return [fail("Empty prompt after applying prefix/suffix", stage="empty_prompt")]
 
     engine._emit(f"{prefix} 📝 Markdown: {item.path.name}")
 
-    provider_input: dict | None = None
     try:
+        engine._check_prompt_length(prompt)
         provider_input = engine._build_replicate_input(
             dict(engine._profile.get("parameters", {})), prompt, item, media_type
         )
+        stage = "provider_call"
         raw_output = engine._request_with_retry(
-            client, engine._profile["endpoint"], provider_input, prefix
+            client, engine._profile["endpoint"], provider_input, prefix, made
         )
         engine._emit(f"{prefix} ✅ Response received")
         engine._emit(f"{prefix} 📦 Payload: {provider_input}")
 
+        stage = "save"
         saved = engine._save_results(
             raw_output,
             media_type,
@@ -94,15 +108,7 @@ def run_item(engine, client, item, idx, total, state) -> list[OutputFile]:
             provider_input,
         )
         if not saved:
-            return [
-                OutputFile(
-                    source_path=item.path,
-                    status="error",
-                    error_msg="No output returned from replicate",
-                    media_type=media_type,
-                    expected_path=expected,
-                )
-            ]
+            return [fail("No output returned from replicate", stage="no_output")]
         state.note_success()
         return [
             OutputFile(
@@ -122,13 +128,7 @@ def run_item(engine, client, item, idx, total, state) -> list[OutputFile]:
             total=total,
             api_payload=provider_input,
         )
-        output = OutputFile(
-            source_path=item.path,
-            status="error",
-            error_msg=str(exc),
-            media_type=media_type,
-            expected_path=expected,
-        )
+        output = fail(str(exc), stage=stage, error=exc)
         if engine._is_fatal(exc):
             engine._emit(
                 f"{prefix} 🛑 Fatal provider error — aborting batch. "

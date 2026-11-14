@@ -2,6 +2,7 @@ import importlib
 import json
 import re
 import time
+import tomllib
 import traceback
 import urllib.request
 from collections.abc import Callable
@@ -95,6 +96,7 @@ def _write_error_log(
     payload: dict | None = None,
     error: BaseException | None = None,
     error_msg: str = "",
+    prediction: dict | None = None,
 ) -> Path | None:
     """Write a verbose ``<base>-<idx>_ERROR.log`` beside the would-be output.
 
@@ -131,6 +133,16 @@ def _write_error_log(
             *_media_lines(item),
             f"prompt: {prompt if prompt else '(empty)'}",
             f"error stage: {stage}",
+            *(
+                [
+                    f"prediction id: {prediction['id']}",
+                    f"prediction get: {prediction['get']}",
+                    f"prediction web: {prediction['web']}",
+                    "note: this prediction exists at Replicate and may still finish.",
+                ]
+                if prediction
+                else []
+            ),
             f"error: {error_msg or 'n/a'}",
         ]
         if error is not None:
@@ -176,16 +188,20 @@ class Engine(InputBuilder, RetryPolicy):
         self._suffix = profile.get("prompt_suffix", "")
         self._concurrency = profile.get("concurrency", 1)
         self._input_props_cache: dict | None = None
+        self._lost: list[dict] = []
 
     def run(self, inputs: list[InputFile]) -> list[OutputFile]:
         self._validate_preflight()
 
         import replicate
 
+        self._lost = []
         if self._concurrency > 1:
             from . import runner
 
-            return runner.run_batch(self, inputs)
+            results = runner.run_batch(self, inputs)
+            self._emit_lost()
+            return results
 
         client = replicate.Client(api_token=self._resolve_api_key(), timeout=600.0)
         endpoint = self._profile["endpoint"]
@@ -248,14 +264,16 @@ class Engine(InputBuilder, RetryPolicy):
             self._emit(f"{prefix} 📝 Markdown: {item.path.name}")
 
             replicate_input: dict | None = None
+            made: dict = {}
             stage = "build_input"
             try:
+                self._check_prompt_length(prompt)
                 replicate_input = self._build_replicate_input(
                     params, prompt, item, media_type
                 )
                 stage = "provider_call"
                 raw_output = self._request_with_retry(
-                    client, endpoint, replicate_input, prefix
+                    client, endpoint, replicate_input, prefix, made
                 )
                 self._emit(f"{prefix} ✅ Response received")
                 self._emit(f"{prefix} 📦 Payload: {replicate_input}")
@@ -278,8 +296,10 @@ class Engine(InputBuilder, RetryPolicy):
                         **failure_context,
                         stage="no_output",
                         payload=replicate_input,
+                        prediction=made,
                         error_msg=no_output_msg,
                     )
+                    self._note_lost(made)
                     output = OutputFile(
                         source_path=item.path,
                         status="error",
@@ -316,7 +336,9 @@ class Engine(InputBuilder, RetryPolicy):
                     payload=replicate_input,
                     error=exc,
                     error_msg=f"{type(exc).__name__}: {exc}",
+                    prediction=made,
                 )
+                self._note_lost(made)
                 output = OutputFile(
                     source_path=item.path,
                     status="error",
@@ -354,7 +376,33 @@ class Engine(InputBuilder, RetryPolicy):
 
             results.append(output)
 
+        self._emit_lost()
         return results
+
+    def _note_lost(self, made: dict):
+        if made:
+            self._lost.append(made)
+
+    def _emit_lost(self):
+        for made in self._lost:
+            self._emit(
+                f"⚠️ Prediction {made['id']} may still finish at Replicate: {made['web']}",
+                level="error",
+            )
+
+    def _check_prompt_length(self, prompt: str):
+        """Refuse a prompt over the endpoint file's `prompt_max_chars`, before any call."""
+        endpoint = self._profile.get("endpoint")
+        for path in (Path(__file__).parent / "endpoints").glob("*/*.toml"):
+            data = tomllib.loads(path.read_text(encoding="utf-8"))
+            limit = data.get("general", {}).get("prompt_max_chars")
+            if limit and data.get("endpoint") == endpoint:
+                if len(prompt) > limit:
+                    raise ValueError(
+                        f"Prompt is {len(prompt)} characters; {endpoint} accepts "
+                        f"at most {limit} characters"
+                    )
+                return
 
     def _validate_preflight(self):
         if not self._profile.get("endpoint"):

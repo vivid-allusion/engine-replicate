@@ -1,3 +1,4 @@
+from fake_client import FakeClient
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -119,7 +120,7 @@ class TestEngineRun:
     def test_empty_inputs(self, tmp_path):
         with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
             mock_replicate = MagicMock()
-            mock_client = MagicMock()
+            mock_client = FakeClient()
             mock_replicate.Client.return_value = mock_client
             with patch.dict("sys.modules", {"replicate": mock_replicate}):
                 engine = Engine(
@@ -132,7 +133,7 @@ class TestEngineRun:
     def test_run_calls_progress_callback(self, tmp_path):
         with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
             mock_replicate = MagicMock()
-            mock_client = MagicMock()
+            mock_client = FakeClient()
             mock_client.run.return_value = ["https://example.com/out.png"]
             mock_replicate.Client.return_value = mock_client
 
@@ -151,7 +152,7 @@ class TestEngineRun:
     def test_applies_prefix_suffix(self, tmp_path):
         with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
             mock_replicate = MagicMock()
-            mock_client = MagicMock()
+            mock_client = FakeClient()
             mock_client.run.return_value = []
             mock_replicate.Client.return_value = mock_client
             with patch.dict("sys.modules", {"replicate": mock_replicate}):
@@ -172,7 +173,7 @@ class TestEngineRun:
     def test_empty_prompt_after_prefix_suffix_is_error(self, tmp_path):
         with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
             mock_replicate = MagicMock()
-            mock_client = MagicMock()
+            mock_client = FakeClient()
             mock_replicate.Client.return_value = mock_client
             with patch.dict("sys.modules", {"replicate": mock_replicate}):
                 engine = Engine(
@@ -192,7 +193,7 @@ class TestEngineRun:
     def test_per_markdown_file_error_returns_error_outputfile(self, tmp_path):
         with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
             mock_replicate = MagicMock()
-            mock_client = MagicMock()
+            mock_client = FakeClient()
             mock_client.run.side_effect = RuntimeError("API timeout")
             mock_replicate.Client.return_value = mock_client
             with patch.dict("sys.modules", {"replicate": mock_replicate}):
@@ -208,7 +209,7 @@ class TestEngineRun:
     def test_partial_success_mixed_batch(self, tmp_path):
         with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
             mock_replicate = MagicMock()
-            mock_client = MagicMock()
+            mock_client = FakeClient()
             mock_client.run.side_effect = [
                 ["https://a.com/ok.png"],
                 RuntimeError("fail"),
@@ -230,7 +231,7 @@ class TestEngineRun:
     def test_save_results_downloads_urls(self, tmp_path):
         with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
             mock_replicate = MagicMock()
-            mock_client = MagicMock()
+            mock_client = FakeClient()
             mock_client.run.return_value = ["https://example.com/img.png"]
             mock_replicate.Client.return_value = mock_client
             with patch.dict("sys.modules", {"replicate": mock_replicate}):
@@ -249,7 +250,7 @@ class TestEngineRun:
     def test_save_results_mirrors_relative_dir(self, tmp_path):
         with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
             mock_replicate = MagicMock()
-            mock_client = MagicMock()
+            mock_client = FakeClient()
             mock_client.run.return_value = ["https://example.com/img.png"]
             mock_replicate.Client.return_value = mock_client
             with patch.dict("sys.modules", {"replicate": mock_replicate}):
@@ -276,7 +277,7 @@ class TestEngineRun:
     def test_none_output_returns_error(self, tmp_path):
         with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
             mock_replicate = MagicMock()
-            mock_client = MagicMock()
+            mock_client = FakeClient()
             mock_client.run.return_value = None
             mock_replicate.Client.return_value = mock_client
             with patch.dict("sys.modules", {"replicate": mock_replicate}):
@@ -292,7 +293,7 @@ class TestEngineRun:
     def test_video_media_type_uses_start_image(self, tmp_path):
         with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
             mock_replicate = MagicMock()
-            mock_client = MagicMock()
+            mock_client = FakeClient()
             mock_client.run.return_value = ["https://example.com/out.mp4"]
             mock_replicate.Client.return_value = mock_client
             with patch.dict("sys.modules", {"replicate": mock_replicate}):
@@ -329,7 +330,7 @@ class TestStreamSaveExtension:
 
         with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
             mock_replicate = MagicMock()
-            mock_client = MagicMock()
+            mock_client = FakeClient()
             mock_client.run.return_value = [BytesIO(data)]
             mock_replicate.Client.return_value = mock_client
             full_profile = {"endpoint": "test/model", "media_type": "image"}
@@ -377,7 +378,7 @@ class TestPromptLogging:
     def test_markdown_filename_is_emitted_to_progress(self, tmp_path):
         with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
             mock_replicate = MagicMock()
-            mock_client = MagicMock()
+            mock_client = FakeClient()
             mock_client.run.return_value = []
             mock_replicate.Client.return_value = mock_client
             progress_calls = []
@@ -401,7 +402,7 @@ class TestPromptLogging:
     def test_empty_prompt_is_not_logged(self, tmp_path):
         with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
             mock_replicate = MagicMock()
-            mock_client = MagicMock()
+            mock_client = FakeClient()
             mock_replicate.Client.return_value = mock_client
             progress_calls = []
             with patch.dict("sys.modules", {"replicate": mock_replicate}):
@@ -421,7 +422,7 @@ class TestExpectedPath:
     def _run_error(self, tmp_path, profile: dict | None = None):
         with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
             mock_replicate = MagicMock()
-            mock_client = MagicMock()
+            mock_client = FakeClient()
             mock_client.run.side_effect = RuntimeError("API timeout")
             mock_replicate.Client.return_value = mock_client
             full_profile = {"endpoint": "test/model", "media_type": "image"}
@@ -456,7 +457,7 @@ class TestExpectedPath:
     def test_error_event_carries_api_payload(self, tmp_path):
         with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
             mock_replicate = MagicMock()
-            mock_client = MagicMock()
+            mock_client = FakeClient()
             mock_client.run.side_effect = RuntimeError("API timeout")
             mock_replicate.Client.return_value = mock_client
             progress_calls = []
@@ -490,7 +491,7 @@ class TestOutputNaming:
         """Run one bullet with ``datetime.now()`` pinned to TS."""
         with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
             mock_replicate = MagicMock()
-            mock_client = MagicMock()
+            mock_client = FakeClient()
             if error:
                 mock_client.run.side_effect = RuntimeError(error)
             else:
@@ -869,11 +870,14 @@ class TestErrorClassification:
         eng = self._engine()
         assert eng._is_fatal(_FakeError(status=401, detail="Unauthorized"))
 
-    def test_unknown_5xx_is_neither_retryable_nor_fatal(self):
+    def test_every_5xx_is_retryable_not_fatal(self):
         eng = self._engine()
-        err = _FakeError(status=500, detail="internal error")
-        assert not eng._is_rate_limited(err)
-        assert not eng._is_fatal(err)
+        for status in (500, 502, 503, 504):
+            err = _FakeError(status=status, detail="boom")
+            assert eng._is_rate_limited(err)
+            assert not eng._is_fatal(err)
+        assert eng._classify_error(RuntimeError("502 Bad Gateway")) == "retryable"
+        assert eng._classify_error(RuntimeError("gateway timeout")) == "retryable"
 
 
 class TestRetryClassificationMatchesE003:
@@ -890,7 +894,7 @@ class TestRetryClassificationMatchesE003:
         # End-to-end: client.run raises the E003 once, then succeeds.
         with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
             mock_replicate = MagicMock()
-            mock_client = MagicMock()
+            mock_client = FakeClient()
             mock_client.run.side_effect = [
                 _FakeError(detail=line),
                 ["https://example.com/out.png"],
@@ -920,7 +924,7 @@ class TestCircutBreakerAndFatalAbort:
         line = "AvailabilityError: high demand (E003)"
         with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
             mock_replicate = MagicMock()
-            mock_client = MagicMock()
+            mock_client = FakeClient()
             mock_client.run.side_effect = _FakeError(detail=line)
             mock_replicate.Client.return_value = mock_client
             with patch.dict("sys.modules", {"replicate": mock_replicate}):
@@ -946,7 +950,7 @@ class TestCircutBreakerAndFatalAbort:
     def test_fatal_error_aborts_batch_immediately(self, tmp_path):
         with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
             mock_replicate = MagicMock()
-            mock_client = MagicMock()
+            mock_client = FakeClient()
             mock_client.run.side_effect = _FakeError(
                 status=402, detail="Payment required"
             )
@@ -980,7 +984,7 @@ class TestErrorLog:
     ):
         with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
             mock_replicate = MagicMock()
-            mock_client = MagicMock()
+            mock_client = FakeClient()
             if exc is not None:
                 mock_client.run.side_effect = exc
             else:

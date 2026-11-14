@@ -10,6 +10,7 @@ from typing import Any  # noqa: TC003 - supported Python versions
 
 import os
 import random
+import re
 import time
 from email.utils import parsedate_to_datetime
 
@@ -57,20 +58,16 @@ class RetryPolicy:
             return self._api_key
         return os.environ.get(self.API_KEY_ENV_VAR, "")
 
-    def _request_with_retry(
-        self, client, endpoint: str, replicate_input: dict, prefix: str
-    ) -> Any:
+    def _with_retry(self, call, prefix: str):
         max_retries = int(self._profile.get("retry_on_429", 4))
         base_delay = float(self._profile.get("retry_base_delay", 2.0))
-        last_exc: Exception | None = None
         for attempt in range(max_retries + 1):
             try:
-                return client.run(endpoint, input=replicate_input)
+                return call()
             except Exception as exc:
                 rate = self._classify_error(exc)
                 if rate != "retryable" or attempt >= max_retries:
                     raise
-                last_exc = exc
                 long_backoff = self._is_high_demand(exc)
                 sleep = base_delay * (8 if long_backoff else 2) ** attempt + random.uniform(
                     0, 1
@@ -82,13 +79,49 @@ class RetryPolicy:
                     label = "high-demand outage"
                 elif self._is_timeout(exc):
                     label = "request timeout"
+                elif self._is_server_error(exc):
+                    label = "server error"
                 else:
                     label = "429 rate limit"
                 self._emit(
                     f"{prefix} ⏳ {label}, retry {attempt + 1}/{max_retries} in {sleep:.1f}s"
                 )
                 time.sleep(sleep)
-        raise last_exc
+
+    def _request_with_retry(
+        self, client, endpoint: str, replicate_input: dict, prefix: str, made: dict
+    ) -> Any:
+        """Create the prediction, then poll its id until it ends.
+
+        `made` is filled with the prediction's id/get/web the moment it exists, so
+        the caller can name it in an error log. Only the create call is ever
+        repeated as a create: a failure while polling re-polls the same id, never
+        makes a second (billed) prediction.
+        """
+        if ":" in endpoint:
+            version = endpoint.split(":", 1)[1]
+            create = lambda: client.predictions.create(  # noqa: E731
+                version=version, input=replicate_input, wait=True
+            )
+        else:
+            owner, name = endpoint.split("/", 1)
+            create = lambda: client.models.predictions.create(  # noqa: E731
+                model=(owner, name), input=replicate_input, wait=True
+            )
+        prediction = self._with_retry(create, prefix)
+        urls = getattr(prediction, "urls", None) or {}
+        made.update(id=prediction.id, get=urls.get("get", ""), web=urls.get("web", ""))
+        self._emit(f"{prefix} 🆔 Prediction {prediction.id}")
+        interval = getattr(client, "poll_interval", 0.5)
+        interval = float(interval) if isinstance(interval, (int, float)) else 0.5
+        while prediction.status not in ("succeeded", "failed", "canceled"):
+            time.sleep(interval)
+            prediction = self._with_retry(
+                lambda: client.predictions.get(made["id"]), prefix
+            )
+        if prediction.status != "succeeded":
+            raise RuntimeError(f"Prediction {prediction.status}: {prediction.error}")
+        return prediction.output
 
     @classmethod
     def _classify_error(cls, exc: Exception) -> str:
@@ -110,7 +143,7 @@ class RetryPolicy:
             )
         ):
             return "fatal"
-        if status == 429:
+        if status == 429 or cls._is_server_error(exc):
             return "retryable"
         if cls._is_high_demand(exc):
             return "retryable"
@@ -135,6 +168,17 @@ class RetryPolicy:
                 "503",
                 "service unavailable",
             )
+        )
+
+    @staticmethod
+    def _is_server_error(exc: Exception) -> bool:
+        """Any 5xx, by status or by text (502, 504, "bad gateway", ...)."""
+        status = getattr(exc, "status", None)
+        if isinstance(status, int) and 500 <= status <= 599:
+            return True
+        text = str(exc).lower()
+        return bool(re.search(r"\b5\d\d\b", text)) or any(
+            t in text for t in ("bad gateway", "gateway timeout", "internal server error")
         )
 
     @staticmethod

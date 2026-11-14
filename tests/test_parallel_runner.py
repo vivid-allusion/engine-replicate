@@ -6,6 +6,7 @@ than one job provably in flight when the profile asks for it, and never
 more than N at any point.
 """
 
+from fake_client import FakeClient
 import sys
 import threading
 import time
@@ -45,7 +46,7 @@ class _Probe:
 
 def _run_engine(profile, out_dir, impl, probe=False, progress_calls=None):
     mock_replicate = MagicMock()
-    mock_client = MagicMock()
+    mock_client = FakeClient()
     call = _Probe(impl) if probe else impl
     mock_client.run.side_effect = call
     mock_replicate.Client.return_value = mock_client
@@ -77,7 +78,7 @@ def statuses_of(results):
 
 def _run_engine_n(profile, out_dir, impl, n=3, probe=False, progress_calls=None):
     mock_replicate = MagicMock()
-    mock_client = MagicMock()
+    mock_client = FakeClient()
     call = _Probe(impl) if probe else impl
     mock_client.run.side_effect = call
     mock_replicate.Client.return_value = mock_client

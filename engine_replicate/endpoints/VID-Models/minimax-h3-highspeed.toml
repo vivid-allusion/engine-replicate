@@ -6,6 +6,7 @@ endpoint = "minimax/h3-highspeed"
 description = "MiniMax H3 Highspeed: video from words alone, a start picture (and end picture), or reference pictures, clips and sounds."
 
 [general]
+prompt_max_chars = 7000
 image_url_param = "first_frame_image"
 duration_type = "seconds"
 duration_param_name = "duration"

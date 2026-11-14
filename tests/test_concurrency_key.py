@@ -1,3 +1,4 @@
+from fake_client import FakeClient
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -25,7 +26,7 @@ class TestConcurrencyKey:
     @classmethod
     def _run_batch(cls, profile, out_dir):
         mock_replicate = MagicMock()
-        mock_client = MagicMock()
+        mock_client = FakeClient()
         mock_client.run.side_effect = [
             ["https://a.com/ok-1.png"],
             RuntimeError("fail"),
@@ -97,7 +98,7 @@ class TestConcurrencyKey:
         outcomes = []
         for i, profile in enumerate(profiles):
             mock_replicate = MagicMock()
-            mock_client = MagicMock()
+            mock_client = FakeClient()
             mock_client.run.side_effect = _FakeError(
                 status=402, detail="Payment required"
             )
