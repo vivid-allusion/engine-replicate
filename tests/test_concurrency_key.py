@@ -1,4 +1,4 @@
-from fake_client import FakeClient
+from fake_client import FakeClient, fake_urlopen
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -36,7 +36,7 @@ class TestConcurrencyKey:
         progress = []
         with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
             with patch.dict("sys.modules", {"replicate": mock_replicate}):
-                with patch("urllib.request.urlretrieve"):
+                with patch("urllib.request.urlopen", side_effect=fake_urlopen()):
                     with patch(
                         "engine_replicate.engine.datetime",
                         cls._frozen_datetime(),

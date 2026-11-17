@@ -1,4 +1,4 @@
-from fake_client import FakeClient
+from fake_client import FakeClient, fake_urlopen
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -217,7 +217,7 @@ class TestEngineRun:
             ]
             mock_replicate.Client.return_value = mock_client
             with patch.dict("sys.modules", {"replicate": mock_replicate}):
-                with patch("urllib.request.urlretrieve"):
+                with patch("urllib.request.urlopen", side_effect=fake_urlopen()):
                     engine = Engine(
                         {"endpoint": "test/model", "media_type": "image"},
                         tmp_path,
@@ -235,8 +235,7 @@ class TestEngineRun:
             mock_client.run.return_value = ["https://example.com/img.png"]
             mock_replicate.Client.return_value = mock_client
             with patch.dict("sys.modules", {"replicate": mock_replicate}):
-                with patch("urllib.request.urlretrieve") as mock_retrieve:
-                    mock_retrieve.return_value = (None, None)
+                with patch("urllib.request.urlopen", side_effect=fake_urlopen()) as mock_retrieve:
                     engine = Engine(
                         {"endpoint": "test/model", "media_type": "image"},
                         tmp_path,
@@ -254,8 +253,7 @@ class TestEngineRun:
             mock_client.run.return_value = ["https://example.com/img.png"]
             mock_replicate.Client.return_value = mock_client
             with patch.dict("sys.modules", {"replicate": mock_replicate}):
-                with patch("urllib.request.urlretrieve") as mock_retrieve:
-                    mock_retrieve.return_value = (None, None)
+                with patch("urllib.request.urlopen", side_effect=fake_urlopen()) as mock_retrieve:
                     engine = Engine(
                         {"endpoint": "test/model", "media_type": "image"},
                         tmp_path,
@@ -297,7 +295,7 @@ class TestEngineRun:
             mock_client.run.return_value = ["https://example.com/out.mp4"]
             mock_replicate.Client.return_value = mock_client
             with patch.dict("sys.modules", {"replicate": mock_replicate}):
-                with patch("urllib.request.urlretrieve"):
+                with patch("urllib.request.urlopen", side_effect=fake_urlopen()):
                     engine = Engine(
                         {
                             "endpoint": "test/model",
@@ -525,7 +523,7 @@ class TestOutputNaming:
         assert _output_stem("b", self.TS) == f"{self.TS}-b"
 
     def test_saved_path_replaces_embedded_timestamp(self, tmp_path):
-        with patch("urllib.request.urlretrieve"):
+        with patch("urllib.request.urlopen", side_effect=fake_urlopen()):
             results = self._run_pinned(
                 tmp_path, f"{self.STEM}.md", ["https://example.com/img.png"]
             )
@@ -533,7 +531,7 @@ class TestOutputNaming:
         assert results[0].path.name == f"{self.NAMED}-0.png"
 
     def test_saved_path_prepends_without_embedded_timestamp(self, tmp_path):
-        with patch("urllib.request.urlretrieve"):
+        with patch("urllib.request.urlopen", side_effect=fake_urlopen()):
             results = self._run_pinned(tmp_path, "b.md", ["https://example.com/img.png"])
         assert results[0].status == "ok"
         assert results[0].path.name == f"{self.TS}-b-0.png"
@@ -544,7 +542,7 @@ class TestOutputNaming:
         assert results[0].expected_path.name == f"{self.NAMED}-0.png"
 
     def test_multi_output_suffix_kept_with_embedded_timestamp(self, tmp_path):
-        with patch("urllib.request.urlretrieve"):
+        with patch("urllib.request.urlopen", side_effect=fake_urlopen()):
             results = self._run_pinned(
                 tmp_path,
                 f"{self.STEM}.md",
@@ -901,7 +899,7 @@ class TestRetryClassificationMatchesE003:
             ]
             mock_replicate.Client.return_value = mock_client
             with patch.dict("sys.modules", {"replicate": mock_replicate}):
-                with patch("urllib.request.urlretrieve"):
+                with patch("urllib.request.urlopen", side_effect=fake_urlopen()):
                     engine = Engine(
                         {
                             "endpoint": "test/model",
@@ -1041,7 +1039,7 @@ class TestErrorLog:
         assert "api payload:\nnull" in content
 
     def test_save_download_failure_writes_error_log(self, tmp_path):
-        with patch("urllib.request.urlretrieve", side_effect=OSError("disk full")):
+        with patch("urllib.request.urlopen", side_effect=OSError("disk full")):
             results = self._run(tmp_path)
         result = results[0]
         assert result.status == "error"
@@ -1050,6 +1048,32 @@ class TestErrorLog:
         assert "error stage: save" in content
         assert "error: OSError: disk full" in content
         assert "Traceback (most recent call last):" in content
+
+    def test_cut_download_leaves_no_file(self, tmp_path):
+        class Cut:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+            def read(self, n=-1):
+                if getattr(self, "sent", False):
+                    raise ConnectionResetError("cut")
+                self.sent = True
+                return b"half"
+
+        with patch("urllib.request.urlopen", side_effect=lambda *a, **k: Cut()):
+            results = self._run(tmp_path)
+        assert results[0].status == "error"
+        assert [p.name for p in tmp_path.iterdir() if not p.name.endswith(".log")] == []
+
+    def test_good_download_leaves_no_temp_file(self, tmp_path):
+        with patch("urllib.request.urlopen", side_effect=fake_urlopen(b"whole")):
+            results = self._run(tmp_path)
+        assert results[0].status == "ok"
+        assert Path(results[0].path).read_bytes() == b"whole"
+        assert not list(tmp_path.glob(".*.part"))
 
     def test_error_log_created_in_missing_relative_dir(self, tmp_path):
         item = InputFile(
@@ -1074,7 +1098,7 @@ class TestErrorLog:
         assert "***MASKED***" in content
 
     def test_success_writes_no_error_log(self, tmp_path):
-        with patch("urllib.request.urlretrieve"):
+        with patch("urllib.request.urlopen", side_effect=fake_urlopen()):
             results = self._run(tmp_path)
         assert results[0].status == "ok"
         assert results[0].metadata.get("error_log") is None

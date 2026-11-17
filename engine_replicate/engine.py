@@ -1,11 +1,14 @@
 import importlib
 import json
+import os
 import re
+import shutil
 import time
 import tomllib
 import traceback
 import urllib.request
 from collections.abc import Callable
+from contextlib import contextmanager
 from datetime import datetime
 from typing import Any
 from pathlib import Path
@@ -467,7 +470,8 @@ class Engine(InputBuilder, RetryPolicy):
                 ext = self._infer_extension(item, media_type)
                 suffix = "" if len(raw_output) == 1 else f"_{i}"
                 dest = dest_dir / f"{named_stem}-{idx}{suffix}{ext}"
-                urllib.request.urlretrieve(item, dest)
+                with self._atomic_write(dest) as f, urllib.request.urlopen(item) as resp:
+                    shutil.copyfileobj(resp, f)
                 self._emit(
                     f"{prefix} 💾 Saved: {dest.name}",
                     current=current,
@@ -482,7 +486,7 @@ class Engine(InputBuilder, RetryPolicy):
                 ext = self._sniff_extension(data, media_type)
                 suffix = "" if len(raw_output) == 1 else f"_{i}"
                 dest = dest_dir / f"{named_stem}-{idx}{suffix}{ext}"
-                with open(dest, "wb") as f:
+                with self._atomic_write(dest) as f:
                     f.write(data)
                 self._emit(
                     f"{prefix} 💾 Saved: {dest.name}",
@@ -493,6 +497,19 @@ class Engine(InputBuilder, RetryPolicy):
                 )
                 saved.append(dest)
         return saved
+
+    @staticmethod
+    @contextmanager
+    def _atomic_write(dest: Path):
+        """Write to a hidden .part file and move it into place only when complete."""
+        tmp = dest.with_name(f".{dest.name}.part")
+        try:
+            with open(tmp, "wb") as f:
+                yield f
+            os.replace(tmp, dest)
+        except BaseException:
+            tmp.unlink(missing_ok=True)
+            raise
 
     def _sniff_extension(self, data: bytes, media_type: str) -> str:
         """Determine the real file extension from the stream's magic bytes.

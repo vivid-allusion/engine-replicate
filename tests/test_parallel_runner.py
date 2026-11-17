@@ -6,7 +6,7 @@ than one job provably in flight when the profile asks for it, and never
 more than N at any point.
 """
 
-from fake_client import FakeClient
+from fake_client import FakeClient, fake_urlopen
 import sys
 import threading
 import time
@@ -53,7 +53,7 @@ def _run_engine(profile, out_dir, impl, probe=False, progress_calls=None):
     recorder = progress_calls if progress_calls is not None else []
     with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
         with patch.dict("sys.modules", {"replicate": mock_replicate}):
-            with patch("urllib.request.urlretrieve"):
+            with patch("urllib.request.urlopen", side_effect=fake_urlopen()):
                 with patch(
                     "engine_replicate.engine.datetime",
                     TestConcurrencyKey._frozen_datetime(),
@@ -85,7 +85,7 @@ def _run_engine_n(profile, out_dir, impl, n=3, probe=False, progress_calls=None)
     recorder = progress_calls if progress_calls is not None else []
     with patch.dict("os.environ", {"REPLICATE_API_TOKEN": "r8_test"}):
         with patch.dict("sys.modules", {"replicate": mock_replicate}):
-            with patch("urllib.request.urlretrieve"):
+            with patch("urllib.request.urlopen", side_effect=fake_urlopen()):
                 with patch(
                     "engine_replicate.engine.datetime",
                     TestConcurrencyKey._frozen_datetime(),

@@ -16,3 +16,10 @@ class FakeClient:
             urls={"get": "http://x/v1/predictions/pred1", "web": "https://replicate.com/p/pred1"},
         )
         self.models = SimpleNamespace(predictions=SimpleNamespace(create=create))
+
+
+def fake_urlopen(data: bytes = b"data"):
+    """A urlopen stand-in whose response streams `data`; usable as a patch side_effect."""
+    import io
+
+    return lambda *a, **k: io.BytesIO(data)
