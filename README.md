@@ -2,12 +2,11 @@
 
 Engine wrapper for the [Replicate](https://replicate.com) API.
 
-Part of the [studiolot](https://github.com/vivid-allusion/studiolot) Generator /
-Engine / SDK architecture. This repo wraps the `replicate` Python SDK behind a
+Part of Helmer's Generator / Engine architecture (Helmer → Transceiver → Generator → Engine). This repo wraps the `replicate` Python SDK behind a
 uniform interface that Generators (Image Generator, Video Generator, etc.) call.
 The Generator never imports `replicate` directly — it calls this Engine.
 
-See `docs/architecture/ENGINE_CONTRACT.md` in the studiolot repo for the full
+See `docs/architecture/ENGINE_CONTRACT.md` in the helmer-transceiver repo for the full
 interface contract.
 
 ## Quick start
@@ -71,32 +70,36 @@ Get a token at: https://replicate.com/account/api-tokens
 
 ## Endpoint models
 
-Endpoint TOML definitions live in `endpoints/`. Each file defines a model's
+Endpoint TOML definitions live in `engine_replicate/endpoints/`. Each file defines a model's
 valid parameter ranges (aspect_ratio, resolution, etc.) — the "bounds" that
 the ActionWizard reads to build select menus. When a new Replicate-hosted
 model drops, add a TOML file here and send a PR. `git pull` the Engine repo
-→ new model appears as an option in studiolot.
+→ new model appears as an option in Helmer.
 
 ## Repo structure
 
 ```
 engine-replicate/
-├── __init__.py          ← re-exports Engine, InputFile, OutputFile, etc.
-├── engine.py            ← Engine class — all Replicate SDK calls live here
-├── datatypes.py         ← InputFile, OutputFile, ProgressEvent, EngineError
-├── metadata.py          ← zero-dependency constants (studiolot imports this)
-├── endpoints/
-│   ├── IMG-Models/      ← image model TOML definitions (8 models)
-│   ├── VID-Models/      ← video model TOML definitions (10 models)
-│   ├── TXT-Models/      ← future: text models (engine-openrouter)
-│   └── Vision-Models/   ← future: vision models (engine-openrouter)
+├── engine_replicate/
+│   ├── __init__.py      ← re-exports Engine, InputFile, OutputFile, etc.
+│   ├── engine.py        ← Engine class — all Replicate SDK calls live here
+│   ├── datatypes.py     ← InputFile, OutputFile, ProgressEvent, EngineError
+│   ├── metadata.py      ← zero-dependency constants (Helmer imports this)
+│   ├── endpoints/
+│   │   ├── IMG-Models/  ← image model TOML definitions
+│   │   ├── VID-Models/  ← video model TOML definitions
+│   │   ├── TXT-Models/  ← future: text models (engine-openrouter)
+│   │   └── Vision-Models/ ← future: vision models (engine-openrouter)
+│   └── profiles/standby/ ← publishable YAML profiles (IMG/, VID/)
+├── scripts/check_schema_sync.py
+├── tests/
 ├── requirements.txt     ← replicate>=1.0
 ├── .env.example         ← REPLICATE_API_TOKEN template
 ├── pyproject.toml       ← pip install engine-replicate
 └── README.md
 ```
 
-See `docs/architecture/ENGINE_CONTRACT.md` §6a in studiolot.
+See `docs/architecture/ENGINE_CONTRACT.md` in helmer-transceiver.
 
 ## License
 
