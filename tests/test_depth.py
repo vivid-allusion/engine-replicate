@@ -65,6 +65,13 @@ def test_picture_without_words_runs_and_sends_no_prompt(tmp_path, concurrency):
     assert res[0].path.read_bytes() == data
 
 
+def test_words_are_not_sent_to_a_model_without_prompt_field(tmp_path):
+    url, _ = _png(tmp_path, "a")
+    res, sent = _run(tmp_path / "out", url, {"image": {"type": "string"}}, 1, prompt="some words")
+    assert res[0].status == "ok"
+    assert sent[0]["input"] == {"image": PIC}
+
+
 @pytest.mark.parametrize("concurrency", [1, 2])
 def test_picture_without_words_still_refused_when_model_takes_prompt(tmp_path, concurrency):
     res, sent = _run(tmp_path / "out", None, {"prompt": {"type": "string"}, "image": {"type": "string"}}, concurrency)

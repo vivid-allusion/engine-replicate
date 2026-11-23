@@ -584,6 +584,7 @@ class TestBuildReplicateInput:
         return engine._build_replicate_input(params or {}, item.prompt, item, "video")
 
     SEEDANCE_SCHEMA = {
+        "prompt": {"type": "string"},
         "image": {"type": "string"},
         "reference_images": {"type": "array"},
         "reference_videos": {"type": "array"},

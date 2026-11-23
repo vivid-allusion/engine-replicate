@@ -25,8 +25,7 @@ class InputBuilder:
         replicate_input.pop("prompt_prefix", None)
         replicate_input.pop("prompt_suffix", None)
 
-        # A non-empty prompt is always sent: the seedance test fixture has a prompt-less schema
-        if prompt or self._takes_prompt():
+        if self._takes_prompt():
             replicate_input["prompt"] = prompt
         ref_key = self._reference_key()
         if item.reference_urls:
