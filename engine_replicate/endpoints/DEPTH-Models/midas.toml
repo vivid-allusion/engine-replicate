@@ -1,0 +1,20 @@
+id = "midas"
+label = "MiDaS"
+category = "DEPTH"
+platform = "replicate"
+endpoint = "cjwbw/midas:a6ba5798f04f80d3b314de0f0a62277f21ab3503c60c84d4817de83c5edfdae0"
+description = "MiDaS: picture to depth map."
+
+[general]
+image_url_param = "image"
+
+[params.model_type]
+label = "Model Type"
+type = "select"
+default = "dpt_beit_large_512"
+options = [
+  { value = "dpt_beit_large_512", label = "dpt_beit_large_512" },
+  { value = "dpt_swin2_large_384", label = "dpt_swin2_large_384" },
+  { value = "dpt_swin2_tiny_256", label = "dpt_swin2_tiny_256" },
+  { value = "dpt_levit_224", label = "dpt_levit_224" },
+]

@@ -25,7 +25,9 @@ class InputBuilder:
         replicate_input.pop("prompt_prefix", None)
         replicate_input.pop("prompt_suffix", None)
 
-        replicate_input["prompt"] = prompt
+        # A non-empty prompt is always sent: the seedance test fixture has a prompt-less schema
+        if prompt or self._takes_prompt():
+            replicate_input["prompt"] = prompt
         ref_key = self._reference_key()
         if item.reference_urls:
             replicate_input[ref_key] = self._coerce_media_value(ref_key, item.reference_urls)
@@ -39,6 +41,14 @@ class InputBuilder:
             replicate_input[key] = self._coerce_param_value(key, duration, props)
 
         return replicate_input
+
+    def _takes_prompt(self) -> bool:
+        props = self._input_props()
+        return not props or "prompt" in props
+
+    def _may_skip_prompt(self, item) -> bool:
+        """A picture with no words is a whole request for a model that has no prompt field."""
+        return bool(item.reference_urls) and not self._takes_prompt()
 
     def _reference_key(self) -> str:
         for key in ("image_url_param", "reference_param"):
@@ -58,7 +68,7 @@ class InputBuilder:
             import replicate
 
             client = replicate.Client(api_token=self._resolve_api_key())
-            model = client.models.get(str(self._profile.get("endpoint", "")))
+            model = client.models.get(str(self._profile.get("endpoint", "")).split(":")[0])
             schema = getattr(model.latest_version, "openapi_schema", None) or {}
             raw = (
                 schema.get("components", {})

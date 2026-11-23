@@ -78,7 +78,7 @@ def run_item(engine, client, item, idx, total, state) -> list[OutputFile]:
             metadata=_error_metadata(log_path),
         )  # fmt: skip
 
-    if not prompt:
+    if not prompt and not engine._may_skip_prompt(item):
         return [fail("Empty prompt after applying prefix/suffix", stage="empty_prompt")]
 
     engine._emit(f"{prefix} 📝 Markdown: {item.path.name}")

@@ -1,0 +1,22 @@
+id = "lotus"
+label = "Lotus"
+category = "DEPTH"
+platform = "replicate"
+endpoint = "chenxwh/lotus:87d8467fb2d23f07f2aa0b9e08585dd60bd3b163bef0c2dc7274be64904f4198"
+description = "Lotus: picture to depth map."
+
+[general]
+image_url_param = "image"
+
+[params.seed]
+label = "Seed"
+type = "integer"
+optional = true
+
+[params.task]
+label = "Task"
+type = "select"
+default = "depth"
+options = [
+  { value = "depth", label = "depth" },
+]

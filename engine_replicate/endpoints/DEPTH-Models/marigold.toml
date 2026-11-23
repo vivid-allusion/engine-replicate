@@ -1,0 +1,56 @@
+id = "marigold"
+label = "Marigold"
+category = "DEPTH"
+platform = "replicate"
+endpoint = "adirik/marigold:1a363593bc4882684fc58042d19db5e13a810e44e02f8d4c32afd1eb30464818"
+description = "Marigold: picture to depth map."
+
+[general]
+image_url_param = "image"
+
+[params.seed]
+label = "Seed"
+type = "integer"
+optional = true
+
+[params.max_iter]
+label = "Max Iter"
+type = "integer"
+default = 5
+min = 1
+max = 20
+
+[params.num_infer]
+label = "Num Infer"
+type = "integer"
+default = 10
+min = 1
+max = 20
+
+[params.resize_input]
+label = "Resize Input"
+type = "boolean"
+default = true
+
+[params.denoise_steps]
+label = "Denoise Steps"
+type = "integer"
+default = 10
+min = 1
+max = 50
+
+[params.reduction_method]
+label = "Reduction Method"
+type = "select"
+default = "median"
+options = [
+  { value = "mean", label = "mean" },
+  { value = "median", label = "median" },
+]
+
+[params.regularizer_strength]
+label = "Regularizer Strength"
+type = "number"
+default = 0.02
+min = 0
+max = 1

@@ -1,0 +1,9 @@
+id = "ml-depth-pro"
+label = "Depth Pro"
+category = "DEPTH"
+platform = "replicate"
+endpoint = "chenxwh/ml-depth-pro:a6645b33f4e36eda0d8d52ab3da6ef37b82d198e2b70c72e680cc75f0baf1623"
+description = "Depth Pro: picture to depth map."
+
+[general]
+image_url_param = "image_path"

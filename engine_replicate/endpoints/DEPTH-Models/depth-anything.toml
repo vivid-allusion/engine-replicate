@@ -1,0 +1,19 @@
+id = "depth-anything"
+label = "Depth Anything"
+category = "DEPTH"
+platform = "replicate"
+endpoint = "cjwbw/depth-anything:e5b0454205013708df48492a13a8ee4b3c412173362fc56c6b5558eb54e527e5"
+description = "Depth Anything: picture to depth map."
+
+[general]
+image_url_param = "image"
+
+[params.encoder]
+label = "Encoder"
+type = "select"
+default = "vitl"
+options = [
+  { value = "vits", label = "vits" },
+  { value = "vitb", label = "vitb" },
+  { value = "vitl", label = "vitl" },
+]

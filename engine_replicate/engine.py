@@ -12,6 +12,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from typing import Any
 from pathlib import Path
+from urllib.parse import urlparse
 
 from .datatypes import EngineError, InputFile, OutputFile, ProgressEvent
 from .input_builder import InputBuilder
@@ -246,7 +247,7 @@ class Engine(InputBuilder, RetryPolicy):
                 "prompt": prompt,
                 "expected": expected,
             }
-            if not prompt:
+            if not prompt and not self._may_skip_prompt(item):
                 empty_prompt_msg = "Empty prompt after applying prefix/suffix"
                 log_path = _write_error_log(
                     **failure_context,
@@ -455,6 +456,12 @@ class Engine(InputBuilder, RetryPolicy):
     ) -> list[Path]:
         if raw_output is None:
             return []
+        if isinstance(raw_output, dict):
+            # Named fields: keep the pictures, never the .npz data file
+            raw_output = [
+                v for v in raw_output.values()
+                if isinstance(v, str) and not urlparse(v).path.endswith(".npz")
+            ]
         if not isinstance(raw_output, list):
             raw_output = [raw_output]
 

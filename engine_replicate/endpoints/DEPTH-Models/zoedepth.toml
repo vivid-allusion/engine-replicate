@@ -1,0 +1,19 @@
+id = "zoedepth"
+label = "ZoeDepth"
+category = "DEPTH"
+platform = "replicate"
+endpoint = "cjwbw/zoedepth:6375723d97400d3ac7b88e3022b738bf6f433ae165c4a2acd1955eaa6b8fcb62"
+description = "ZoeDepth: picture to depth map."
+
+[general]
+image_url_param = "image"
+
+[params.model_type]
+label = "Model Type"
+type = "select"
+default = "ZoeD_N"
+options = [
+  { value = "ZoeD_N", label = "ZoeD_N" },
+  { value = "ZoeD_K", label = "ZoeD_K" },
+  { value = "ZoeD_NK", label = "ZoeD_NK" },
+]

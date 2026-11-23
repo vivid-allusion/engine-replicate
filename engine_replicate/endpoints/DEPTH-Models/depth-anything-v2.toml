@@ -1,0 +1,19 @@
+id = "depth-anything-v2"
+label = "Depth Anything V2"
+category = "DEPTH"
+platform = "replicate"
+endpoint = "chenxwh/depth-anything-v2:b239ea33cff32bb7abb5db39ffe9a09c14cbc2894331d1ef66fe096eed88ebd4"
+description = "Depth Anything V2: picture to depth map."
+
+[general]
+image_url_param = "image"
+
+[params.model_size]
+label = "Model Size"
+type = "select"
+default = "Large"
+options = [
+  { value = "Small", label = "Small" },
+  { value = "Base", label = "Base" },
+  { value = "Large", label = "Large" },
+]
