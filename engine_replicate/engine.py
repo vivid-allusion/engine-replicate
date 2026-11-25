@@ -517,8 +517,6 @@ class Engine(InputBuilder, RetryPolicy):
                 break
             f.write(chunk)
             done += len(chunk)
-        if size and last < 100 and done >= size:
-            self._emit(f"{prefix} ⬇️  Downloading... 100%", percent=100)
 
     @staticmethod
     @contextmanager
