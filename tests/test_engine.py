@@ -1050,6 +1050,29 @@ class TestErrorLog:
         assert "error: OSError: disk full" in content
         assert "Traceback (most recent call last):" in content
 
+    def _percent_steps(self, tmp_path, size, header):
+        import io
+
+        resp = io.BytesIO(b"x" * size)
+        resp.headers = {"Content-Length": str(header)} if header is not None else {}
+        events = []
+        engine = Engine({"endpoint": "test/model", "media_type": "image"}, tmp_path, on_progress=events.append)
+        engine._copy_with_percent(resp, io.BytesIO(), "[1]")
+        return events
+
+    def test_download_reports_ten_percent_steps(self, tmp_path):
+        events = self._percent_steps(tmp_path, 300_000, 300_000)
+        assert [e.percent for e in events] == list(range(0, 101, 10))
+        assert events[3].message.endswith("Downloading... 30%")
+        assert all(e.current == 0 for e in events)
+
+    def test_download_without_size_reports_no_percent(self, tmp_path):
+        assert self._percent_steps(tmp_path, 1000, None) == []
+
+    def test_download_percent_never_above_100(self, tmp_path):
+        events = self._percent_steps(tmp_path, 2000, 1000)
+        assert max(e.percent for e in events) == 100
+
     def test_cut_download_leaves_no_file(self, tmp_path):
         class Cut:
             def __enter__(self):

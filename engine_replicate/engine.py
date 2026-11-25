@@ -2,7 +2,6 @@ import importlib
 import json
 import os
 import re
-import shutil
 import time
 import tomllib
 import traceback
@@ -478,7 +477,7 @@ class Engine(InputBuilder, RetryPolicy):
                 suffix = "" if len(raw_output) == 1 else f"_{i}"
                 dest = dest_dir / f"{named_stem}-{idx}{suffix}{ext}"
                 with self._atomic_write(dest) as f, urllib.request.urlopen(item) as resp:
-                    shutil.copyfileobj(resp, f)
+                    self._copy_with_percent(resp, f, prefix)
                 self._emit(
                     f"{prefix} 💾 Saved: {dest.name}",
                     current=current,
@@ -504,6 +503,22 @@ class Engine(InputBuilder, RetryPolicy):
                 )
                 saved.append(dest)
         return saved
+
+    def _copy_with_percent(self, resp, f, prefix: str):
+        headers = getattr(resp, "headers", None)
+        size = int(headers.get("Content-Length") or 0) if headers else 0
+        done, last = 0, -1
+        while True:
+            if size and min(100, done * 100 // size) // 10 * 10 > last:
+                last = min(100, done * 100 // size) // 10 * 10
+                self._emit(f"{prefix} ⬇️  Downloading... {last}%", percent=last)
+            chunk = resp.read(8192)
+            if not chunk:
+                break
+            f.write(chunk)
+            done += len(chunk)
+        if size and last < 100 and done >= size:
+            self._emit(f"{prefix} ⬇️  Downloading... 100%", percent=100)
 
     @staticmethod
     @contextmanager
@@ -565,6 +580,7 @@ class Engine(InputBuilder, RetryPolicy):
         total: int = 0,
         saved_path: Path | None = None,
         api_payload: dict | None = None,
+        percent: int | None = None,
     ):
         if self._on_progress:
             self._on_progress(
@@ -575,5 +591,6 @@ class Engine(InputBuilder, RetryPolicy):
                     total=total,
                     saved_path=saved_path,
                     api_payload=api_payload,
+                    percent=percent,
                 )
             )
